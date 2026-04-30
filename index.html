@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>Web Epipolar Demo</title>
+    <!-- MathJax -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
         .container { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
-        .canvas-container { position: relative; display: inline-block; overflow: hidden; border: 2px solid #555; border-radius: 4px; background: #000; width: 640px; height: 480px;}
-        /* 縮小表示してキャンバス外のエピポールまで見せる工夫 */
-        canvas { position: absolute; transform-origin: top left; cursor: crosshair; }
+        .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; overflow: hidden;}
+        /* canvasのサイズ自体は640x480のまま。ズーム時はscaleで縮小表示 */
+        canvas { cursor: crosshair; display: block; transform-origin: top left; transition: transform 0.3s ease; }
         h1 { margin-bottom: 5px; color: #4fc3f7; }
         h2 { margin-top: 40px; border-bottom: 1px solid #444; padding-bottom: 5px; display: inline-block; }
         h3 { color: #81c784; margin-top: 25px; }
@@ -32,19 +33,21 @@
         <button class="btn-clear" onclick="clearAll()" style="margin-left: 20px;">Clear Lines</button>
     </div>
 
+    <!-- コンテナのサイズは640x480で固定 -->
     <div class="container">
-        <!-- 描画領域を広くとり、CSS transform で縮小・移動して見せる -->
-        <div class="canvas-container" id="containerLeft">
-            <canvas id="canvasLeft" width="2000" height="1500" style="left: 0px; top: 0px;"></canvas>
+        <div class="canvas-container" id="containerLeft" style="width: 640px; height: 480px;">
+            <canvas id="canvasLeft" width="2000" height="1500" style="transform: scale(0.32) translate(0px, 0px);"></canvas>
+            <h3 style="position: absolute; top: 10px; left: 10px; margin: 0; color: #fff; text-shadow: 1px 1px 2px #000; pointer-events: none;">Left Image</h3>
         </div>
-        <div class="canvas-container" id="containerRight">
-            <canvas id="canvasRight" width="2000" height="1500" style="left: 0px; top: 0px;"></canvas>
+        <div class="canvas-container" id="containerRight" style="width: 640px; height: 480px;">
+            <canvas id="canvasRight" width="2000" height="1500" style="transform: scale(0.32) translate(0px, 0px);"></canvas>
+            <h3 style="position: absolute; top: 10px; left: 10px; margin: 0; color: #fff; text-shadow: 1px 1px 2px #000; pointer-events: none;">Right Image</h3>
         </div>
     </div>
     
     <div class="explanation">
         <h2>💡 エピポーラ線の計算プロセス</h2>
-        <!-- 以下略（以前のまま） -->
+        
         <h3>1. 特徴点抽出とマッチング (SIFT + FLANN)</h3>
         <p>まず、左右の画像から SIFT (Scale-Invariant Feature Transform) を用いて特徴点を抽出します。その後、FLANNベースのマッチングを行い、Lowe's ratio test によって信頼性の高いペアだけを残しました。</p>
         
@@ -101,14 +104,13 @@
             [-0.0007782985589519366, 0.002402366628324919, 1.0]
         ];
 
-        // Fの転置行列 (F^T)
         const Ft = [
             [F[0][0], F[1][0], F[2][0]],
             [F[0][1], F[1][1], F[2][1]],
             [F[0][2], F[1][2], F[2][2]]
         ];
 
-        // 表示画像のオリジナルサイズ (cv_left.jpg等)
+        // オリジナルの画像サイズ
         const IMG_W = 640;
         const IMG_H = 480;
 
@@ -125,71 +127,77 @@
         const colors = ['#FF3366', '#33CCFF', '#66FF66', '#FFCC00', '#CC66FF', '#FF9933', '#33FF99'];
         let clickCount = 0;
 
-        // ズームアウト状態の管理
         let isZoomedOut = false;
-        // ズームアウト時のオフセットとスケール（エピポールが画面外左側に来ることが多いので右にずらす）
-        const offsetLeftX = 1000;
-        const offsetLeftY = 500;
-        const offsetRightX = 1000;
-        const offsetRightY = 500;
-        const zoomScale = 0.3;
+        
+        // Canvas自体のサイズは大きく取る
+        const CANVAS_W = 2000;
+        const CANVAS_H = 1500;
+        
+        // オフセット：画像をCanvasのどこに置くか
+        const offsetL_X = 1200; // 左側エピポールが見えるように右へずらす
+        const offsetL_Y = 500;
+        const offsetR_X = 1200;
+        const offsetR_Y = 500;
+
+        // 初期化処理：チェックボックスの状態に合わせて初期スケールを設定
+        function initScale() {
+            // isZoomedOut = false なので、通常は scale(1)
+            // ただしCanvasの実体が2000x1500なので、コンテナ(640x480)に合わせるため
+            // オフセットをマイナスして画像を左上に持ってくる
+            canvasL.style.transform = `scale(1) translate(${-offsetL_X}px, ${-offsetL_Y}px)`;
+            canvasR.style.transform = `scale(1) translate(${-offsetR_X}px, ${-offsetR_Y}px)`;
+        }
+        initScale();
 
         function toggleZoom() {
             isZoomedOut = document.getElementById('zoomOutToggle').checked;
             if (isZoomedOut) {
-                // キャンバスを縮小してオフセット移動
-                canvasL.style.transform = `scale(${zoomScale}) translate(${-offsetLeftX}px, ${-offsetLeftY}px)`;
-                canvasR.style.transform = `scale(${zoomScale}) translate(${-offsetRightX}px, ${-offsetRightY}px)`;
+                // コンテナの枠(640x480)の中に2000x1500を収める (0.32倍)
+                canvasL.style.transform = `scale(0.32) translate(0px, 0px)`;
+                canvasR.style.transform = `scale(0.32) translate(0px, 0px)`;
             } else {
-                // 通常状態
-                canvasL.style.transform = `scale(1) translate(0px, 0px)`;
-                canvasR.style.transform = `scale(1) translate(0px, 0px)`;
+                // 等倍に戻し、画像が枠にピッタリ合うように移動
+                canvasL.style.transform = `scale(1) translate(${-offsetL_X}px, ${-offsetL_Y}px)`;
+                canvasR.style.transform = `scale(1) translate(${-offsetR_X}px, ${-offsetR_Y}px)`;
             }
+            render();
         }
 
         function render() {
-            // 背景クリア
-            ctxL.clearRect(0, 0, canvasL.width, canvasL.height);
-            ctxR.clearRect(0, 0, canvasR.width, canvasR.height);
+            ctxL.clearRect(0, 0, CANVAS_W, CANVAS_H);
+            ctxR.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-            // ズームアウト時、画面の中心領域を示す枠を薄く描く
+            // 画像の描画（常にオフセット位置）
+            ctxL.drawImage(imgL, offsetL_X, offsetL_Y, IMG_W, IMG_H);
+            ctxR.drawImage(imgR, offsetR_X, offsetR_Y, IMG_W, IMG_H);
+
+            // ズームアウト時は画像の枠線を描画
             if (isZoomedOut) {
-                ctxL.strokeStyle = '#333'; ctxL.strokeRect(offsetLeftX, offsetLeftY, IMG_W, IMG_H);
-                ctxR.strokeStyle = '#333'; ctxR.strokeRect(offsetRightX, offsetRightY, IMG_W, IMG_H);
+                ctxL.strokeStyle = '#666'; ctxL.lineWidth = 4; ctxL.strokeRect(offsetL_X, offsetL_Y, IMG_W, IMG_H);
+                ctxR.strokeStyle = '#666'; ctxR.lineWidth = 4; ctxR.strokeRect(offsetR_X, offsetR_Y, IMG_W, IMG_H);
             }
 
-            // オフセットを加えて画像を描画
-            const oxL = isZoomedOut ? offsetLeftX : 0;
-            const oyL = isZoomedOut ? offsetLeftY : 0;
-            const oxR = isZoomedOut ? offsetRightX : 0;
-            const oyR = isZoomedOut ? offsetRightY : 0;
+            const lineWidth = isZoomedOut ? 6 : 2;
 
-            ctxL.drawImage(imgL, oxL, oyL, IMG_W, IMG_H);
-            ctxR.drawImage(imgR, oxR, oyR, IMG_W, IMG_H);
-
-            // 左側に右クリックから生成された線を描画
             linesOnL.forEach(item => {
                 ctxL.beginPath();
                 ctxL.moveTo(item.x0, item.y0);
                 ctxL.lineTo(item.x1, item.y1);
                 ctxL.strokeStyle = item.color;
-                ctxL.lineWidth = isZoomedOut ? 6 : 2; // ズームアウト時は線を太く
+                ctxL.lineWidth = lineWidth;
                 ctxL.stroke();
             });
-            // 左クリックの点
-            clicksL.forEach(item => drawPoint(ctxL, item.x + oxL, item.y + oyL, item.color));
+            clicksL.forEach(item => drawPoint(ctxL, item.x + offsetL_X, item.y + offsetL_Y, item.color));
 
-            // 右側に左クリックから生成された線を描画
             linesOnR.forEach(item => {
                 ctxR.beginPath();
                 ctxR.moveTo(item.x0, item.y0);
                 ctxR.lineTo(item.x1, item.y1);
                 ctxR.strokeStyle = item.color;
-                ctxR.lineWidth = isZoomedOut ? 6 : 2;
+                ctxR.lineWidth = lineWidth;
                 ctxR.stroke();
             });
-            // 右クリックの点
-            clicksR.forEach(item => drawPoint(ctxR, item.x + oxR, item.y + oyR, item.color));
+            clicksR.forEach(item => drawPoint(ctxR, item.x + offsetR_X, item.y + offsetR_Y, item.color));
         }
 
         imgL.onload = render;
@@ -214,47 +222,41 @@
             ctx.stroke();
         }
 
-        // キャンバス全体（2000x1500）の端から端まで線を引く
-        // 方程式: ax + by + c = 0
-        function getLineEndpoints(a, b, c, canvasWidth, canvasHeight, offsetX, offsetY) {
-            // 方程式の原点をオフセット分シフトする: a(x - ox) + b(y - oy) + c = 0
-            // -> a*x - a*ox + b*y - b*oy + c = 0
-            // -> a*x + b*y + (c - a*ox - b*oy) = 0
-            const c_new = c - a*offsetX - b*offsetY;
-
-            // x=0のとき y = -c_new / b
+        function getLineEndpoints(a, b, c, cW, cH, ox, oy) {
+            const c_new = c - a*ox - b*oy;
             const y0 = -c_new / b;
             const x0 = 0;
-            
-            // x=canvasWidthのとき y = -(a*canvasWidth + c_new)/b
-            const y1 = -(a * canvasWidth + c_new) / b;
-            const x1 = canvasWidth;
-
+            const y1 = -(a * cW + c_new) / b;
+            const x1 = cW;
             return {x0, y0, x1, y1};
         }
 
         function handleCanvasClick(e, isLeft) {
-            const canvas = isLeft ? canvasL : canvasR;
-            const rect = (isLeft ? document.getElementById('containerLeft') : document.getElementById('containerRight')).getBoundingClientRect();
+            const container = isLeft ? document.getElementById('containerLeft') : document.getElementById('containerRight');
+            const rect = container.getBoundingClientRect();
             
-            // マウスのクリック座標（HTML要素上の座標）
-            let clickX = e.clientX - rect.left;
-            let clickY = e.clientY - rect.top;
+            // コンテナ上のクリック座標 (0~640, 0~480)
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
 
-            // ズームアウトしている場合はクリック座標を逆変換
+            // ズームアウト時の補正
             if (isZoomedOut) {
-                clickX = clickX / zoomScale;
-                clickY = clickY / zoomScale;
+                // 0.32スケールなので逆算
+                x = x / 0.32;
+                y = y / 0.32;
+            } else {
+                // 等倍時はそのままオフセットを足す
+                x = x + (isLeft ? offsetL_X : offsetR_X);
+                y = y + (isLeft ? offsetL_Y : offsetR_Y);
             }
 
-            // 画像のオフセットを引いて、純粋な画像座標系 (0~640, 0~480) に変換
-            const ox = isLeft ? (isZoomedOut ? offsetLeftX : 0) : (isZoomedOut ? offsetRightX : 0);
-            const oy = isLeft ? (isZoomedOut ? offsetLeftY : 0) : (isZoomedOut ? offsetRightY : 0);
-            
-            const imgX = clickX - ox;
-            const imgY = clickY - oy;
+            // 画像のローカル座標に変換 (0~640, 0~480)
+            const ox = isLeft ? offsetL_X : offsetR_X;
+            const oy = isLeft ? offsetL_Y : offsetR_Y;
+            const imgX = x - ox;
+            const imgY = y - oy;
 
-            // 画像の外をクリックした場合は無視
+            // 画像範囲外のクリックは無視
             if (imgX < 0 || imgX > IMG_W || imgY < 0 || imgY > IMG_H) return;
 
             const color = colors[clickCount % colors.length];
@@ -266,9 +268,7 @@
                 const b = F[1][0]*imgX + F[1][1]*imgY + F[1][2];
                 const c = F[2][0]*imgX + F[2][1]*imgY + F[2][2];
                 
-                const oxR = isZoomedOut ? offsetRightX : 0;
-                const oyR = isZoomedOut ? offsetRightY : 0;
-                const pts = getLineEndpoints(a, b, c, canvasR.width, canvasR.height, oxR, oyR);
+                const pts = getLineEndpoints(a, b, c, CANVAS_W, CANVAS_H, offsetR_X, offsetR_Y);
                 linesOnR.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
             } else {
                 clicksR.push({x: imgX, y: imgY, color});
@@ -276,16 +276,14 @@
                 const b = Ft[1][0]*imgX + Ft[1][1]*imgY + Ft[1][2];
                 const c = Ft[2][0]*imgX + Ft[2][1]*imgY + Ft[2][2];
 
-                const oxL = isZoomedOut ? offsetLeftX : 0;
-                const oyL = isZoomedOut ? offsetLeftY : 0;
-                const pts = getLineEndpoints(a, b, c, canvasL.width, canvasL.height, oxL, oyL);
+                const pts = getLineEndpoints(a, b, c, CANVAS_W, CANVAS_H, offsetL_X, offsetL_Y);
                 linesOnL.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
             }
             render();
         }
 
-        canvasL.addEventListener('click', (e) => handleCanvasClick(e, true));
-        canvasR.addEventListener('click', (e) => handleCanvasClick(e, false));
+        document.getElementById('containerLeft').addEventListener('click', (e) => handleCanvasClick(e, true));
+        document.getElementById('containerRight').addEventListener('click', (e) => handleCanvasClick(e, false));
     </script>
 </body>
 </html>
