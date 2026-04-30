@@ -7,6 +7,7 @@
     <!-- 1. polyfillのエラー(ERR_CONNECTION_RESET)対策として CDNを cdnjs または unpkg に変更するか、不要な場合は削除 -->
     <!-- MathJax は最近のブラウザならES6 polyfillなしでも動くため、安定した jsdelivr のみを使用 -->
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="i18n.js"></script>
     
     <!-- 2. OpenCV.jsのロードエラー(NotSameOrigin)対策: 
          docs.opencv.orgは別ドメインからの直リンク(CORS/COOP)をブロックする設定になっているため、
@@ -15,6 +16,9 @@
     
     <style>
         body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; max-width:800px; margin:0 auto; flex-wrap:wrap; }
+        #lang-switcher { display:flex; gap:8px; }
+        #lang-switcher button { background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:8px; padding:8px 12px; cursor:pointer; }
         .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; margin-top: 20px; width: min(100%, 640px); }
         canvas { cursor: grab; display: block; width: 100%; height: auto; touch-action: none; }
         canvas:active { cursor: grabbing; }
@@ -38,12 +42,15 @@
     </style>
 </head>
 <body>
-    <div style="text-align: left; max-width: 800px; margin: 0 auto;">
-        <a href="index.html" class="nav-link">← ポートフォリオに戻る</a>
+    <div class="topbar">
+        <div style="text-align: left; max-width: 800px; margin: 0 auto;">
+            <a href="index.html" class="nav-link" data-i18n="back">← ポートフォリオに戻る</a>
+        </div>
+        <div id="lang-switcher"></div>
     </div>
 
-    <h1>Camera Pose Estimation: PnP & RANSAC</h1>
-    <p style="text-align: center;">青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。</p>
+    <h1 data-i18n="title">Camera Pose Estimation: PnP & RANSAC</h1>
+    <p data-i18n="lead" style="text-align: center;">青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。</p>
     
     <div id="status" class="status">OpenCV.js を読み込み中...</div>
 
@@ -296,5 +303,27 @@
         canvas.addEventListener('touchcancel', endDrag);
 
     </script>
+
+    <script>
+      window.PAGE_I18N = {
+        ja: {
+          back: '← ポートフォリオに戻る',
+          title: 'Camera Pose Estimation: PnP & RANSAC',
+          lead: '青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。'
+        },
+        en: {
+          back: '← Back to portfolio',
+          title: 'Camera Pose Estimation: PnP & RANSAC',
+          lead: 'Drag the blue 2D feature points to create mismatched correspondences (outliers).<br>Compare how standard PnP in red and RANSAC-based PnP in green behave.'
+        },
+        zh: {
+          back: '← 返回作品集',
+          title: '相机位姿估计：PnP 与 RANSAC',
+          lead: '拖动蓝色的二维特征点来制造错误对应（外点）。<br>观察普通 PnP（红色）与带 RANSAC 的 PnP（绿色）在位姿估计上的差异。'
+        }
+      };
+      window.addEventListener('load', () => SFM_I18N.mountButtons());
+    </script>
+
 </body>
 </html>

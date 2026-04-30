@@ -13,30 +13,69 @@
         .card h2 { margin-top: 0; color: #81c784; font-size: 1.4em; }
         .card p { color: #aaa; font-size: 0.95em; margin-bottom: 0; }
         .badge { display: inline-block; background: #111; color: #a5d6a7; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px; font-family: monospace;}
+        #lang-switcher { display:flex; gap:8px; justify-content:center; margin-bottom:20px; }
+        #lang-switcher button { background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:8px; padding:8px 12px; cursor:pointer; }
     </style>
+    <script src="i18n.js"></script>
 </head>
 <body>
-    <h1>SfM & Photogrammetry Portfolio</h1>
-    <p>コンピュータビジョン、Structure from Motion (SfM)、フォトグラメトリの学習ノートを、ブラウザで触って動かせるインタラクティブなデモとして実装したポートフォリオです。</p>
+    <div id="lang-switcher"></div>
+    <h1 data-i18n="title">SfM & Photogrammetry Portfolio</h1>
+    <p data-i18n="intro">コンピュータビジョン、Structure from Motion (SfM)、フォトグラメトリの学習ノートを、ブラウザで触って動かせるインタラクティブなデモとして実装したポートフォリオです。</p>
     
     <div class="portfolio-grid">
         <a href="epipolar.html" class="card">
             <span class="badge">Fundamental Matrix</span>
-            <h2>1. Epipolar Geometry</h2>
-            <p>2枚の画像間のエピポーラ拘束を可視化。左の画像をクリックすると、対応するエピポーラ線が右の画像に引かれます。F行列とエピポールの直感的な理解に。</p>
+            <h2 data-i18n="card1_title">1. Epipolar Geometry</h2>
+            <p data-i18n="card1_body">2枚の画像間のエピポーラ拘束を可視化。左の画像をクリックすると、対応するエピポーラ線が右の画像に引かれます。F行列とエピポールの直感的な理解に。</p>
         </a>
         
         <a href="pnp.html" class="card">
             <span class="badge">solvePnPRansac</span>
-            <h2>2. Camera Pose (PnP)</h2>
-            <p>3D空間の点と2D画像の点の対応からカメラの姿勢（位置と向き）を推定するデモ。外れ値（ノイズ）を手動で作り、RANSACがいかに強力かを体験できます。</p>
+            <h2 data-i18n="card2_title">2. Camera Pose (PnP)</h2>
+            <p data-i18n="card2_body">3D空間の点と2D画像の点の対応からカメラの姿勢（位置と向き）を推定するデモ。外れ値（ノイズ）を手動で作り、RANSACがいかに強力かを体験できます。</p>
         </a>
 
         <a href="ba.html" class="card">
             <span class="badge">Bundle Adjustment</span>
-            <h2>3. BA Playground</h2>
-            <p>ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。</p>
+            <h2 data-i18n="card3_title">3. BA Playground</h2>
+            <p data-i18n="card3_body">ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。</p>
         </a>
     </div>
+    <script>
+      window.PAGE_I18N = {
+        ja: {
+          title: 'SfM & Photogrammetry Portfolio',
+          intro: 'コンピュータビジョン、Structure from Motion (SfM)、フォトグラメトリの学習ノートを、ブラウザで触って動かせるインタラクティブなデモとして実装したポートフォリオです。',
+          card1_title: '1. Epipolar Geometry',
+          card1_body: '2枚の画像間のエピポーラ拘束を可視化。左の画像をクリックすると、対応するエピポーラ線が右の画像に引かれます。F行列とエピポールの直感的な理解に。',
+          card2_title: '2. Camera Pose (PnP)',
+          card2_body: '3D空間の点と2D画像の点の対応からカメラの姿勢（位置と向き）を推定するデモ。外れ値（ノイズ）を手動で作り、RANSACがいかに強力かを体験できます。',
+          card3_title: '3. BA Playground',
+          card3_body: 'ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。'
+        },
+        en: {
+          title: 'SfM & Photogrammetry Portfolio',
+          intro: 'A portfolio of interactive browser demos built from study notes on computer vision, Structure from Motion (SfM), and photogrammetry.',
+          card1_title: '1. Epipolar Geometry',
+          card1_body: 'Visualize the epipolar constraint between two images. Click a point in the left image to draw its corresponding epipolar line in the right image.',
+          card2_title: '2. Camera Pose (PnP)',
+          card2_body: 'Estimate camera pose from 3D to 2D correspondences. Manually create outliers and see how powerful RANSAC is.',
+          card3_title: '3. BA Playground',
+          card3_body: 'A demo where perturbed cameras and point clouds are gradually corrected by optimization while reprojection error decreases.'
+        },
+        zh: {
+          title: 'SfM 与摄影测量作品集',
+          intro: '这是一个把计算机视觉、运动恢复结构（SfM）和摄影测量学习笔记做成交互式浏览器演示的作品集。',
+          card1_title: '1. 极线几何',
+          card1_body: '可视化两张图像之间的极线约束。点击左图中的一点，会在右图中画出对应的极线。',
+          card2_title: '2. 相机位姿估计（PnP）',
+          card2_body: '从 3D 点与 2D 点对应关系估计相机位姿。你可以手动制造外点，体验 RANSAC 的强大。',
+          card3_title: '3. BA Playground',
+          card3_body: '一个展示相机与点云在优化中逐步收敛的演示，同时可以看到重投影误差不断下降。'
+        }
+      };
+      SFM_I18N.mountButtons();
+    </script>
 </body>
 </html>

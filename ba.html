@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>BA Playground</title>
+  <script src="i18n.js"></script>
   <style>
     body { font-family: sans-serif; background:#1e1e1e; color:#fff; margin:0; padding:20px; text-align:center; }
+    .topbar { max-width:900px; margin:0 auto 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    #lang-switcher { display:flex; gap:8px; }
+    #lang-switcher button { background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:8px; padding:8px 12px; cursor:pointer; }
     h1 { color:#4fc3f7; margin-bottom:8px; }
     p { color:#ccc; max-width:900px; margin:10px auto; line-height:1.6; text-align:left; }
     .nav { max-width:900px; margin:0 auto 12px; text-align:left; }
@@ -21,10 +25,13 @@
   </style>
 </head>
 <body>
-  <div class="nav"><a href="index.html">← ポートフォリオに戻る</a></div>
-  <h1>BA Playground</h1>
-  <p>Bundle Adjustment は、複数カメラと3D点群をまとめて最適化し、<b>再投影誤差</b>を最小化する処理です。このデモでは、上から見たシーン内で、ズレたカメラと点群が最適化によって少しずつ整っていく様子を可視化します。まず <b>Perturb</b> で初期値を壊し、次に <b>Optimize</b> を押してみてください。</p>
-  <p>BA は SfM や SLAM の最後の仕上げとして使われます。F行列やPnPで「だいたい合っている」カメラ姿勢と点群を得たあと、それら全体を同時に見直して、<b>どのカメラから見ても矛盾が最小になるように全体調整する</b>のが BA の役割です。</p>
+  <div class="topbar">
+    <div class="nav"><a href="index.html" data-i18n="back">← ポートフォリオに戻る</a></div>
+    <div id="lang-switcher"></div>
+  </div>
+  <h1 data-i18n="title">BA Playground</h1>
+  <p data-i18n="intro1">Bundle Adjustment は、複数カメラと3D点群をまとめて最適化し、<b>再投影誤差</b>を最小化する処理です。このデモでは、上から見たシーン内で、ズレたカメラと点群が最適化によって少しずつ整っていく様子を可視化します。まず <b>Perturb</b> で初期値を壊し、次に <b>Optimize</b> を押してみてください。</p>
+  <p data-i18n="intro2">BA は SfM や SLAM の最後の仕上げとして使われます。F行列やPnPで「だいたい合っている」カメラ姿勢と点群を得たあと、それら全体を同時に見直して、<b>どのカメラから見ても矛盾が最小になるように全体調整する</b>のが BA の役割です。</p>
 
   <div class="controls">
     <button id="perturbBtn">Perturb</button>
@@ -321,6 +328,14 @@
     };
 
     reset();
+  </script>
+  <script>
+  window.PAGE_I18N = {
+    ja: { back:'← ポートフォリオに戻る', title:'BA Playground', intro1:'Bundle Adjustment は、複数カメラと3D点群をまとめて最適化し、<b>再投影誤差</b>を最小化する処理です。このデモでは、上から見たシーン内で、ズレたカメラと点群が最適化によって少しずつ整っていく様子を可視化します。まず <b>Perturb</b> で初期値を壊し、次に <b>Optimize</b> を押してみてください。', intro2:'BA は SfM や SLAM の最後の仕上げとして使われます。F行列やPnPで「だいたい合っている」カメラ姿勢と点群を得たあと、それら全体を同時に見直して、<b>どのカメラから見ても矛盾が最小になるように全体調整する</b>のが BA の役割です。' },
+    en: { back:'← Back to portfolio', title:'BA Playground', intro1:'Bundle Adjustment optimizes multiple cameras and 3D points together by minimizing <b>reprojection error</b>. This demo visualizes how perturbed cameras and points gradually become consistent again. First click <b>Perturb</b>, then press <b>Optimize</b>.', intro2:'BA is often used as the final polishing stage of SfM and SLAM. After F-matrix based geometry and PnP give you an approximately correct reconstruction, BA jointly refines everything so the whole scene becomes as consistent as possible from every camera view.' },
+    zh: { back:'← 返回作品集', title:'BA Playground', intro1:'Bundle Adjustment 会同时优化多台相机与三维点，通过最小化<b>重投影误差</b>来让整体结果更一致。这个演示会可视化被扰动后的相机与点云如何逐步恢复。先点击 <b>Perturb</b>，再点击 <b>Optimize</b>。', intro2:'BA 常常作为 SfM 和 SLAM 的最后精修步骤。在 F 矩阵和 PnP 给出“大致正确”的结果之后，BA 会把所有相机与点统一放进一个优化问题里一起微调，使整个场景在所有视角下尽量一致。' }
+  };
+  window.addEventListener('load', () => SFM_I18N.mountButtons());
   </script>
 </body>
 </html>
