@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Epipolar Demo (Serverless)</title>
+    <style>
+        body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; }
+        .container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+        .canvas-container { position: relative; display: inline-block; }
+        canvas { border: 2px solid #555; border-radius: 4px; cursor: crosshair; background: #000; }
+        h1 { margin-bottom: 5px; }
+        p { color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Serverless Epipolar Geometry</h1>
+    <p>Pythonサーバー不要！JavaScriptの行列計算だけでブラウザ完結で動いています（GitHub Pagesで公開可能）</p>
+    
+    <div class="container">
+        <div class="canvas-container">
+            <h3>Left Image (Click Me!)</h3>
+            <canvas id="canvasLeft" width="384" height="288"></canvas>
+        </div>
+        <div class="canvas-container">
+            <h3>Right Image</h3>
+            <canvas id="canvasRight" width="384" height="288"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvasL = document.getElementById('canvasLeft');
+        const ctxL = canvasL.getContext('2d');
+        const canvasR = document.getElementById('canvasRight');
+        const ctxR = canvasR.getContext('2d');
+
+        // OpenCVで事前に計算したTsukubaデータセットのFundamental Matrix
+        const F = [
+            [9.317027148719364e-07e0, 3.340673672346502e-05e0, -0.002677711432673428e0],
+            [1.2266335083122096e-05e0, 3.7848599160992755e-06e0, -0.017459976779485003e0],
+            [-0.0007782985589519366e0, 0.002402366628324919e0, 1.0e0]
+        ];
+
+        // 画像URL (直接読み込み)
+        const imgL = new Image();
+        const imgR = new Image();
+        imgL.crossOrigin = "Anonymous";
+        imgR.crossOrigin = "Anonymous";
+        imgL.src = "https://raw.githubusercontent.com/uoip/stereo_matching/master/opencv/opencv/master/samples/data/left.jpg";
+        imgR.src = "https://raw.githubusercontent.com/uoip/stereo_matching/master/opencv/opencv/master/samples/data/right.jpg";
+
+        let linesData = [];
+        const colors = ['#FF3366', '#33CCFF', '#66FF66', '#FFCC00', '#CC66FF'];
+        let clickCount = 0;
+
+        imgL.onload = () => ctxL.drawImage(imgL, 0, 0, canvasL.width, canvasL.height);
+        imgR.onload = () => ctxR.drawImage(imgR, 0, 0, canvasR.width, canvasR.height);
+
+        function redrawRight() {
+            ctxR.drawImage(imgR, 0, 0, canvasR.width, canvasR.height);
+            linesData.forEach((line, i) => {
+                const c = colors[i % colors.length];
+                ctxR.beginPath();
+                ctxR.moveTo(line.x0, line.y0);
+                ctxR.lineTo(line.x1, line.y1);
+                ctxR.strokeStyle = c;
+                ctxR.lineWidth = 2;
+                ctxR.stroke();
+            });
+        }
+
+        canvasL.addEventListener('click', (e) => {
+            const rect = canvasL.getBoundingClientRect();
+            // キャンバス内の座標を取得し、表示スケールを補正
+            const scaleX = canvasL.width / rect.width;
+            const scaleY = canvasL.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            const color = colors[clickCount % colors.length];
+            clickCount++;
+
+            // 左に点を描く
+            ctxL.beginPath();
+            ctxL.arc(x, y, 4, 0, 2 * Math.PI);
+            ctxL.fillStyle = color;
+            ctxL.fill();
+            ctxL.lineWidth = 1.5;
+            ctxL.strokeStyle = 'white';
+            ctxL.stroke();
+
+            // JSで F * [x, y, 1]^T の行列計算を行う (エピポーラ線の係数 a,b,c を求める)
+            const a = F[0][0]*x + F[0][1]*y + F[0][2];
+            const b = F[1][0]*x + F[1][1]*y + F[1][2];
+            const c = F[2][0]*x + F[2][1]*y + F[2][2];
+
+            // 直線 ax + by + c = 0 を描画するための端点を計算
+            const width = canvasR.width;
+            // x=0のとき y = -c/b
+            const y0 = -c / b;
+            const x0 = 0;
+            // x=widthのとき y = -(a*width + c)/b
+            const y1 = -(a * width + c) / b;
+            const x1 = width;
+
+            // 右に線を保存して再描画
+            linesData.push({ x0: x0, y0: y0, x1: x1, y1: y1 });
+            redrawRight();
+        });
+    </script>
+</body>
+</html>
