@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Epipolar Demo</title>
+    <!-- MathJax v3 -->
+    <script>
+      MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        svg: {
+          fontCache: 'global'
+        }
+      };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
+        .container { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; overflow: hidden;}
+        canvas { cursor: crosshair; display: block; transform-origin: top left; transition: transform 0.3s ease; }
+        h1 { margin-bottom: 5px; color: #4fc3f7; }
+        h2 { margin-top: 40px; border-bottom: 1px solid #444; padding-bottom: 5px; display: inline-block; }
+        h3 { color: #81c784; margin-top: 25px; }
+        p { color: #ccc; max-width: 800px; margin: 10px auto; text-align: left; }
+        .explanation { background: #2d2d2d; padding: 20px; border-radius: 8px; max-width: 800px; margin: 30px auto; text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .matches-img { max-width: 100%; height: auto; border: 1px solid #555; border-radius: 4px; margin-top: 10px; }
+        .math-box { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 1.1em; text-align: center; margin: 15px auto; max-width: 600px;}
+        .btn-clear { margin-top: 15px; padding: 8px 16px; background: #e53935; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .btn-clear:hover { background: #ef5350; }
+        .control-panel { margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Epipolar Geometry Interactive Demo</h1>
+    <p style="text-align: center;">左右どちらの画像をクリックしても、反対側の画像にエピポーラ線が描画されます。<br>ズームアウトモードにすると、画像の外側で線が交わる点（エピポール）が確認できます。</p>
+    
+    <div class="control-panel">
+        <label><input type="checkbox" id="zoomOutToggle" onchange="toggleZoom()"> ズームアウトしてエピポール（交点）を表示する</label>
+        <button class="btn-clear" onclick="clearAll()" style="margin-left: 20px;">Clear Lines</button>
+    </div>
+
+    <div class="container">
+        <div class="canvas-container" id="containerLeft" style="width: 640px; height: 480px;">
+            <canvas id="canvasLeft" width="2000" height="1500" style="transform: scale(0.32) translate(0px, 0px);"></canvas>
+            <h3 style="position: absolute; top: 10px; left: 10px; margin: 0; color: #fff; text-shadow: 1px 1px 2px #000; pointer-events: none;">Left Image</h3>
+        </div>
+        <div class="canvas-container" id="containerRight" style="width: 640px; height: 480px;">
+            <canvas id="canvasRight" width="2000" height="1500" style="transform: scale(0.32) translate(0px, 0px);"></canvas>
+            <h3 style="position: absolute; top: 10px; left: 10px; margin: 0; color: #fff; text-shadow: 1px 1px 2px #000; pointer-events: none;">Right Image</h3>
+        </div>
+    </div>
+    
+    <div class="explanation">
+        <h2>💡 なぜこの「線」が重要なのか？</h2>
+        <p>SfM（Structure from Motion）やステレオビジョンにおいて、左の画像に写っているある点が「右の画像のどこに写っているか？」を探す処理（マッチング）は非常に計算量がかかります。<br>
+        しかし、カメラの位置関係（F行列）が分かっていると、<strong>「左の画像のこの点は、右の画像の『この直線上』のどこかに必ず存在する」</strong>という強烈な制約がかかります。これが<b>エピポーラ拘束（Epipolar Constraint）</b>です。</p>
+        <p>この線（エピポーラ線）のおかげで、画像全体を闇雲に探す必要がなくなり、1次元の「線の上」だけを探せばよくなるため、ステレオマッチングや3次元復元が圧倒的に高速かつ高精度に行えるようになります。</p>
+
+        <h2>📐 エピポーラ線の計算プロセス</h2>
+        
+        <h3>1. 特徴点抽出とマッチング (SIFT + FLANN)</h3>
+        <p>まず、左右の画像から SIFT を用いて特徴点を抽出し、FLANNベースのマッチングを行います。</p>
+        
+        <h3>2. 外れ値除去とF行列の推定 (LMedS)</h3>
+        <p>誤対応（外れ値）を排除するため、ロバスト推定手法（LMedS）を用いて正しい対応関係のみを抽出しながら、3×3の基礎行列（F行列）を求めました。</p>
+        
+        <p>以下の画像は、F行列の推定に実際に使われたマッチング（インライア）を緑色の線で結んだものです。</p>
+        <div style="text-align: center;">
+            <img src="matches.jpg" alt="特徴点マッチング結果" class="matches-img">
+        </div>
+
+        <h3>3. エピポーラ拘束の計算式（左から右へ）</h3>
+        <p>推定したF行列 $F$ は、左右の画像上の対応点 $\mathbf{x}$ と $\mathbf{x'}$ の間に以下の幾何学的な拘束を与えます。</p>
+        
+        <div class="math-box">
+            $$ \mathbf{x'}^T F \mathbf{x} = 0 $$
+        </div>
+
+        <p>ここで、$\mathbf{x} = [x, y, 1]^T$ は左画像でクリックした点の同次座標です。対応する「右画像上のエピポーラ線」$\mathbf{l'}$ は、行列の積で求まります。</p>
+
+        <div class="math-box">
+            $$ \mathbf{l'} = F \mathbf{x} = \begin{bmatrix} a \\ b \\ c \end{bmatrix} $$
+        </div>
+
+        <p>このベクトル $\mathbf{l'} = [a, b, c]^T$ が、右画像上での直線の方程式 $ax' + by' + c = 0$ を表しています。</p>
+
+        <h3>4. 転置を用いた双方向計算（右から左へ）</h3>
+        <p>右側の画像で $\mathbf{x'}$ をクリックした場合は、式を変形すると以下のようになります。</p>
+
+        <div class="math-box">
+            $$ \mathbf{x}^T F^T \mathbf{x'} = 0 $$
+        </div>
+
+        <p>右画像上の点 $\mathbf{x'}$ に対応する「左画像上のエピポーラ線」$\mathbf{l}$ は、F行列の転置行列 $F^T$ を掛けることで求まります。</p>
+
+        <div class="math-box">
+            $$ \mathbf{l} = F^T \mathbf{x'} $$
+        </div>
+
+        <h3>5. エピポール（Epipole）</h3>
+        <p>画像内の複数の場所をクリックしていくと、反対側の画像に描画されたすべての線が「ある一点」で交差することがわかります。この交点が<b>エピポール（Epipole）</b>です。<br>エピポールは、「もう一方のカメラの中心」が「現在のカメラの画像面上」に投影された点です。純粋な数学的性質として、すべてのエピポーラ線はこの点を必ず通ります。</p>
+    </div>
+
+    <script>
+        const canvasL = document.getElementById('canvasLeft');
+        const ctxL = canvasL.getContext('2d');
+        const canvasR = document.getElementById('canvasRight');
+        const ctxR = canvasR.getContext('2d');
+
+        // Pythonで事前計算したFundamental Matrix
+        const F = [
+            [9.317027148719364e-07, 3.340673672346502e-05, -0.002677711432673428],
+            [1.2266335083122096e-05, 3.7848599160992755e-06, -0.017459976779485003],
+            [-0.0007782985589519366, 0.002402366628324919, 1.0]
+        ];
+
+        const Ft = [
+            [F[0][0], F[1][0], F[2][0]],
+            [F[0][1], F[1][1], F[2][1]],
+            [F[0][2], F[1][2], F[2][2]]
+        ];
+
+        const IMG_W = 640;
+        const IMG_H = 480;
+
+        const imgL = new Image();
+        const imgR = new Image();
+        imgL.src = "left.jpg";
+        imgR.src = "right.jpg";
+
+        let clicksL = [];
+        let clicksR = [];
+        let linesOnR = []; 
+        let linesOnL = []; 
+        
+        const colors = ['#FF3366', '#33CCFF', '#66FF66', '#FFCC00', '#CC66FF', '#FF9933', '#33FF99'];
+        let clickCount = 0;
+
+        let isZoomedOut = false;
+        
+        const CANVAS_W = 2000;
+        const CANVAS_H = 1500;
+        
+        const offsetL_X = 1200; 
+        const offsetL_Y = 500;
+        const offsetR_X = 1200;
+        const offsetR_Y = 500;
+
+        function initScale() {
+            canvasL.style.transform = `scale(1) translate(${-offsetL_X}px, ${-offsetL_Y}px)`;
+            canvasR.style.transform = `scale(1) translate(${-offsetR_X}px, ${-offsetR_Y}px)`;
+        }
+        initScale();
+
+        function toggleZoom() {
+            isZoomedOut = document.getElementById('zoomOutToggle').checked;
+            if (isZoomedOut) {
+                canvasL.style.transform = `scale(0.32) translate(0px, 0px)`;
+                canvasR.style.transform = `scale(0.32) translate(0px, 0px)`;
+            } else {
+                canvasL.style.transform = `scale(1) translate(${-offsetL_X}px, ${-offsetL_Y}px)`;
+                canvasR.style.transform = `scale(1) translate(${-offsetR_X}px, ${-offsetR_Y}px)`;
+            }
+            render();
+        }
+
+        function render() {
+            ctxL.clearRect(0, 0, CANVAS_W, CANVAS_H);
+            ctxR.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+            ctxL.drawImage(imgL, offsetL_X, offsetL_Y, IMG_W, IMG_H);
+            ctxR.drawImage(imgR, offsetR_X, offsetR_Y, IMG_W, IMG_H);
+
+            if (isZoomedOut) {
+                ctxL.strokeStyle = '#666'; ctxL.lineWidth = 4; ctxL.strokeRect(offsetL_X, offsetL_Y, IMG_W, IMG_H);
+                ctxR.strokeStyle = '#666'; ctxR.lineWidth = 4; ctxR.strokeRect(offsetR_X, offsetR_Y, IMG_W, IMG_H);
+            }
+
+            const lineWidth = isZoomedOut ? 6 : 2;
+
+            linesOnL.forEach(item => {
+                ctxL.beginPath();
+                ctxL.moveTo(item.x0, item.y0);
+                ctxL.lineTo(item.x1, item.y1);
+                ctxL.strokeStyle = item.color;
+                ctxL.lineWidth = lineWidth;
+                ctxL.stroke();
+            });
+            clicksL.forEach(item => drawPoint(ctxL, item.x + offsetL_X, item.y + offsetL_Y, item.color));
+
+            linesOnR.forEach(item => {
+                ctxR.beginPath();
+                ctxR.moveTo(item.x0, item.y0);
+                ctxR.lineTo(item.x1, item.y1);
+                ctxR.strokeStyle = item.color;
+                ctxR.lineWidth = lineWidth;
+                ctxR.stroke();
+            });
+            clicksR.forEach(item => drawPoint(ctxR, item.x + offsetR_X, item.y + offsetR_Y, item.color));
+        }
+
+        imgL.onload = render;
+        imgR.onload = render;
+
+        function clearAll() {
+            clicksL = [];
+            clicksR = [];
+            linesOnL = [];
+            linesOnR = [];
+            clickCount = 0;
+            render();
+        }
+
+        function drawPoint(ctx, x, y, color) {
+            ctx.beginPath();
+            ctx.arc(x, y, isZoomedOut ? 12 : 4, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = isZoomedOut ? 4 : 1.5;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+        }
+
+        function getLineEndpoints(a, b, c, cW, cH, ox, oy) {
+            const c_new = c - a*ox - b*oy;
+            const y0 = -c_new / b;
+            const x0 = 0;
+            const y1 = -(a * cW + c_new) / b;
+            const x1 = cW;
+            return {x0, y0, x1, y1};
+        }
+
+        function handleCanvasClick(e, isLeft) {
+            const container = isLeft ? document.getElementById('containerLeft') : document.getElementById('containerRight');
+            const rect = container.getBoundingClientRect();
+            
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+
+            if (isZoomedOut) {
+                x = x / 0.32;
+                y = y / 0.32;
+            } else {
+                x = x + (isLeft ? offsetL_X : offsetR_X);
+                y = y + (isLeft ? offsetL_Y : offsetR_Y);
+            }
+
+            const ox = isLeft ? offsetL_X : offsetR_X;
+            const oy = isLeft ? offsetL_Y : offsetR_Y;
+            const imgX = x - ox;
+            const imgY = y - oy;
+
+            if (imgX < 0 || imgX > IMG_W || imgY < 0 || imgY > IMG_H) return;
+
+            const color = colors[clickCount % colors.length];
+            clickCount++;
+
+            if (isLeft) {
+                clicksL.push({x: imgX, y: imgY, color});
+                const a = F[0][0]*imgX + F[0][1]*imgY + F[0][2];
+                const b = F[1][0]*imgX + F[1][1]*imgY + F[1][2];
+                const c = F[2][0]*imgX + F[2][1]*imgY + F[2][2];
+                
+                const pts = getLineEndpoints(a, b, c, CANVAS_W, CANVAS_H, offsetR_X, offsetR_Y);
+                linesOnR.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
+            } else {
+                clicksR.push({x: imgX, y: imgY, color});
+                const a = Ft[0][0]*imgX + Ft[0][1]*imgY + Ft[0][2];
+                const b = Ft[1][0]*imgX + Ft[1][1]*imgY + Ft[1][2];
+                const c = Ft[2][0]*imgX + Ft[2][1]*imgY + Ft[2][2];
+
+                const pts = getLineEndpoints(a, b, c, CANVAS_W, CANVAS_H, offsetL_X, offsetL_Y);
+                linesOnL.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
+            }
+            render();
+        }
+
+        document.getElementById('containerLeft').addEventListener('click', (e) => handleCanvasClick(e, true));
+        document.getElementById('containerRight').addEventListener('click', (e) => handleCanvasClick(e, false));
+    </script>
+</body>
+</html>
