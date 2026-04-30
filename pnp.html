@@ -110,7 +110,27 @@
         let dragIdx = -1;
 
         function onOpenCvReady() {
+            // OpenCV.js は WebAssembly を非同期ロードするため、scriptのonload直後はまだクラス(cv.Mat等)が未定義です。
+            // onRuntimeInitialized コールバックが呼ばれるまで待つ必要があります。
+            if (cv instanceof Promise) {
+                cv.then((target) => {
+                    window.cv = target;
+                    startDemo();
+                });
+            } else if (cv.Mat) {
+                // すでに初期化されている場合
+                startDemo();
+            } else {
+                // 初期化完了を待つ
+                cv['onRuntimeInitialized'] = () => {
+                    startDemo();
+                };
+            }
+        }
+
+        function startDemo() {
             document.getElementById('status').innerText = "";
+            document.getElementById('status').style.display = "none";
             cvReady = true;
             initDemo();
         }
