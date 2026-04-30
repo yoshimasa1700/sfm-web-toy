@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>PnP & RANSAC Interactive Demo</title>
     <!-- 1. polyfillのエラー(ERR_CONNECTION_RESET)対策として CDNを cdnjs または unpkg に変更するか、不要な場合は削除 -->
     <!-- MathJax は最近のブラウザならES6 polyfillなしでも動くため、安定した jsdelivr のみを使用 -->
@@ -14,8 +15,8 @@
     
     <style>
         body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
-        .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; margin-top: 20px; }
-        canvas { cursor: grab; display: block; }
+        .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; margin-top: 20px; width: min(100%, 640px); }
+        canvas { cursor: grab; display: block; width: 100%; height: auto; touch-action: none; }
         canvas:active { cursor: grabbing; }
         h1 { margin-bottom: 5px; color: #4fc3f7; }
         h2 { margin-top: 40px; border-bottom: 1px solid #444; padding-bottom: 5px; display: inline-block; }
@@ -250,17 +251,18 @@
             projectedMat.delete();
         }
 
-        function getMousePos(evt) {
+        function getPointerPos(evt) {
             const rect = canvas.getBoundingClientRect();
+            const p = evt.touches ? evt.touches[0] : evt;
             return {
-                x: (evt.clientX - rect.left) * (canvas.width / rect.width),
-                y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+                x: (p.clientX - rect.left) * (canvas.width / rect.width),
+                y: (p.clientY - rect.top) * (canvas.height / rect.height)
             };
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            const pos = getMousePos(e);
-            let minDist = 15;
+        function startDrag(evt) {
+            const pos = getPointerPos(evt);
+            let minDist = 24;
             dragIdx = -1;
             imgPoints.forEach((p, i) => {
                 const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
@@ -269,19 +271,29 @@
                     dragIdx = i;
                 }
             });
-        });
+        }
 
-        canvas.addEventListener('mousemove', (e) => {
+        function moveDrag(evt) {
             if (dragIdx !== -1) {
-                const pos = getMousePos(e);
+                if (evt.cancelable) evt.preventDefault();
+                const pos = getPointerPos(evt);
                 imgPoints[dragIdx].x = pos.x;
                 imgPoints[dragIdx].y = pos.y;
                 updateAndRender();
             }
-        });
+        }
 
-        canvas.addEventListener('mouseup', () => { dragIdx = -1; });
-        canvas.addEventListener('mouseleave', () => { dragIdx = -1; });
+        function endDrag() { dragIdx = -1; }
+
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', moveDrag);
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('mouseleave', endDrag);
+
+        canvas.addEventListener('touchstart', startDrag, { passive: false });
+        canvas.addEventListener('touchmove', moveDrag, { passive: false });
+        canvas.addEventListener('touchend', endDrag);
+        canvas.addEventListener('touchcancel', endDrag);
 
     </script>
 </body>
