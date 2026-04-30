@@ -152,10 +152,11 @@
             cv.projectPoints(objPtsMat, rvec, tvec, camMat, distCoeffs, imgPtsMat);
             
             imgPoints = [];
+            // projectPoints returns points in CV_32FC2 format, not CV_64FC1
             for (let i = 0; i < imgPtsMat.rows; i++) {
                 imgPoints.push({
-                    x: imgPtsMat.data64F[i * 2],
-                    y: imgPtsMat.data64F[i * 2 + 1]
+                    x: imgPtsMat.data32F[i * 2],
+                    y: imgPtsMat.data32F[i * 2 + 1]
                 });
             }
 
@@ -226,8 +227,8 @@
             const pts = [];
             for (let i = 0; i < projectedMat.rows; i++) {
                 pts.push({
-                    x: projectedMat.data64F[i * 2],
-                    y: projectedMat.data64F[i * 2 + 1]
+                    x: projectedMat.data32F[i * 2],
+                    y: projectedMat.data32F[i * 2 + 1]
                 });
             }
 
