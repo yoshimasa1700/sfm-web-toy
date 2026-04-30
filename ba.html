@@ -17,6 +17,7 @@
     .panel { background:#2d2d2d; border-radius:10px; padding:14px; box-shadow:0 4px 8px rgba(0,0,0,.25); }
     canvas { background:#111; border:1px solid #555; border-radius:8px; max-width:100%; height:auto; }
     .stats { font-family: monospace; color:#a5d6a7; }
+    label { color:#ddd; }
   </style>
 </head>
 <body>
@@ -26,9 +27,12 @@
 
   <div class="controls">
     <button id="perturbBtn">Perturb</button>
+    <button id="outlierBtn">Add Outlier</button>
     <button id="optBtn">Optimize</button>
     <button id="stepBtn">1 Step</button>
     <button id="resetBtn">Reset</button>
+    <label><input type="checkbox" id="robustToggle"> Robust BA (Huber風)</label>
+    <label><input type="checkbox" id="showObsToggle" checked> 観測線を表示</label>
   </div>
   <div class="stats" id="stats">error: 0.0000 | iter: 0</div>
 
@@ -43,7 +47,7 @@
     </div>
   </div>
 
-  <p>白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。ここでは理解しやすさ重視で、BAの本質を模した軽量な反復最適化を使っています。</p>
+  <p>白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。<b>観測線を表示</b> をONにすると、各3D点から各カメラへの観測関係が可視化されます。<b>Add Outlier</b> で外れ値を混ぜ、<b>Robust BA</b> をON/OFFして違いを見てください。</p>
 
   <script>
     const scene = document.getElementById('scene');
@@ -70,6 +74,7 @@
     let iter = 0;
     let history = [];
     let running = false;
+    let outlierIndex = null;
 
     function project(cam, pt) {
       const dx = pt.x - cam.x;
@@ -82,13 +87,20 @@
 
     const observations = truth.cameras.map(cam => truth.points.map(pt => project(cam, pt)));
 
+    function huberWeight(r, delta=0.08) {
+      const a = Math.abs(r);
+      return a <= delta ? 1 : delta / a;
+    }
+
     function totalError() {
       let e = 0;
+      const robust = document.getElementById('robustToggle')?.checked;
       state.cameras.forEach((cam, ci) => {
         state.points.forEach((pt, pi) => {
           const pred = project(cam, pt);
           const diff = pred - observations[ci][pi];
-          e += diff * diff;
+          const w = robust ? huberWeight(diff) : 1;
+          e += w * diff * diff;
         });
       });
       return e;
@@ -97,6 +109,7 @@
     function stepOptimize() {
       const lrP = 0.04;
       const lrC = 0.02;
+      const robust = document.getElementById('robustToggle')?.checked;
       const pointGrad = state.points.map(() => ({ x: 0, z: 0 }));
       const camGrad = state.cameras.map(() => ({ x: 0, z: 0, yaw: 0 }));
       const eps = 1e-3;
@@ -106,18 +119,19 @@
           const base = project(cam, pt);
           const target = observations[ci][pi];
           const residual = base - target;
+          const w = robust ? huberWeight(residual) : 1;
 
           const pxe = project(cam, { x: pt.x + eps, z: pt.z });
           const pze = project(cam, { x: pt.x, z: pt.z + eps });
-          pointGrad[pi].x += 2 * residual * ((pxe - base) / eps);
-          pointGrad[pi].z += 2 * residual * ((pze - base) / eps);
+          pointGrad[pi].x += 2 * w * residual * ((pxe - base) / eps);
+          pointGrad[pi].z += 2 * w * residual * ((pze - base) / eps);
 
           const cxe = project({ ...cam, x: cam.x + eps }, pt);
           const cze = project({ ...cam, z: cam.z + eps }, pt);
           const cye = project({ ...cam, yaw: cam.yaw + eps }, pt);
-          camGrad[ci].x += 2 * residual * ((cxe - base) / eps);
-          camGrad[ci].z += 2 * residual * ((cze - base) / eps);
-          camGrad[ci].yaw += 2 * residual * ((cye - base) / eps);
+          camGrad[ci].x += 2 * w * residual * ((cxe - base) / eps);
+          camGrad[ci].z += 2 * w * residual * ((cze - base) / eps);
+          camGrad[ci].yaw += 2 * w * residual * ((cye - base) / eps);
         });
       });
 
@@ -138,6 +152,7 @@
 
     function perturb() {
       state = JSON.parse(JSON.stringify(truth));
+      outlierIndex = null;
       state.points.forEach((p, i) => {
         p.x += (Math.random() - 0.5) * 0.9;
         p.z += (Math.random() - 0.5) * 0.9;
@@ -149,6 +164,15 @@
       });
       iter = 0;
       history = [totalError()];
+      render();
+    }
+
+    function addOutlier() {
+      outlierIndex = Math.floor(Math.random() * state.points.length);
+      state.points[outlierIndex].x += (Math.random() > 0.5 ? 1 : -1) * 2.2;
+      state.points[outlierIndex].z += (Math.random() > 0.5 ? 1 : -1) * 1.8;
+      history = [totalError()];
+      iter = 0;
       render();
     }
 
@@ -191,12 +215,22 @@
         sctx.fillStyle = 'rgba(255,255,255,0.25)';
         sctx.beginPath(); sctx.arc(c.x, c.y, 4, 0, Math.PI*2); sctx.fill();
       });
+      if (document.getElementById('showObsToggle')?.checked) {
+        truth.cameras.forEach(cam => {
+          const cc = worldToCanvas(cam.x, cam.z);
+          truth.points.forEach(p => {
+            const pc = worldToCanvas(p.x, p.z);
+            sctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            sctx.beginPath(); sctx.moveTo(cc.x, cc.y); sctx.lineTo(pc.x, pc.y); sctx.stroke();
+          });
+        });
+      }
       truth.cameras.forEach(c => drawCamera(sctx, c, 'rgba(255,255,255,0.4)', true));
 
-      state.points.forEach(p => {
+      state.points.forEach((p, idx) => {
         const c = worldToCanvas(p.x, p.z);
-        sctx.fillStyle = '#03a9f4';
-        sctx.beginPath(); sctx.arc(c.x, c.y, 5, 0, Math.PI*2); sctx.fill();
+        sctx.fillStyle = idx === outlierIndex ? '#ffeb3b' : '#03a9f4';
+        sctx.beginPath(); sctx.arc(c.x, c.y, idx === outlierIndex ? 7 : 5, 0, Math.PI*2); sctx.fill();
       });
       state.cameras.forEach(c => drawCamera(sctx, c, '#e53935'));
 
@@ -224,8 +258,11 @@
     }
 
     document.getElementById('perturbBtn').onclick = perturb;
+    document.getElementById('outlierBtn').onclick = addOutlier;
     document.getElementById('stepBtn').onclick = stepOptimize;
     document.getElementById('resetBtn').onclick = reset;
+    document.getElementById('robustToggle').onchange = render;
+    document.getElementById('showObsToggle').onchange = render;
     document.getElementById('optBtn').onclick = () => {
       if (running) { running = false; return; }
       running = true;
