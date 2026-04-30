@@ -10,7 +10,7 @@
     <!-- 2. OpenCV.jsのロードエラー(NotSameOrigin)対策: 
          docs.opencv.orgは別ドメインからの直リンク(CORS/COOP)をブロックする設定になっているため、
          公式推奨の jsdelivr や unpkg を使用する -->
-    <script async src="https://cdn.jsdelivr.net/gh/ucisysarch/opencvjs@master/opencv.js" onload="onOpenCvReady();" onerror="document.getElementById('status').innerText = 'OpenCV.jsのロードに失敗しました';"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js" onload="onOpenCvReady();" onerror="document.getElementById('status').innerText = 'OpenCV.jsのロードに失敗しました';"></script>
     
     <style>
         body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
