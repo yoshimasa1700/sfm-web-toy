@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Web Epipolar Demo (Serverless)</title>
+    <title>Web Epipolar Demo</title>
     <!-- MathJax -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -16,13 +16,12 @@
         h3 { color: #81c784; margin-top: 25px; }
         p { color: #ccc; max-width: 800px; margin: 10px auto; text-align: left; }
         .explanation { background: #2d2d2d; padding: 20px; border-radius: 8px; max-width: 800px; margin: 30px auto; text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        code { background: #111; padding: 2px 6px; border-radius: 4px; color: #a5d6a7; font-family: monospace; }
         .matches-img { max-width: 100%; height: auto; border: 1px solid #555; border-radius: 4px; margin-top: 10px; }
         .math-box { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 1.1em; text-align: center; }
     </style>
 </head>
 <body>
-    <h1>Serverless Epipolar Geometry</h1>
+    <h1>Epipolar Geometry Interactive Demo</h1>
     <p style="text-align: center;">左の画像をクリックすると、対応するエピポーラ線が右の画像に描画されます。</p>
     
     <div class="container">
@@ -37,8 +36,8 @@
     </div>
 
     <div class="explanation">
-        <h2>💡 F行列を求めるまでの裏側</h2>
-        <p>このデモがブラウザ単体で動く背景には、事前の画像処理プロセスがあります。どのように特徴点を検出し、F行列（Fundamental Matrix）を計算したのかを公開します。</p>
+        <h2>💡 エピポーラ線の計算プロセス</h2>
+        <p>このデモでは、事前の画像処理プロセスによって計算されたF行列（Fundamental Matrix）を使用して、クリックした点に対応するエピポーラ線をリアルタイムに描画しています。</p>
         
         <h3>1. 特徴点抽出とマッチング (SIFT + FLANN)</h3>
         <p>まず、左右の画像から SIFT (Scale-Invariant Feature Transform) を用いて特徴点を抽出します。その後、FLANNベースのマッチングを行い、Lowe's ratio test によって信頼性の高いペアだけを残しました。</p>
@@ -51,8 +50,8 @@
             <img src="matches.jpg" alt="特徴点マッチング結果" class="matches-img">
         </div>
 
-        <h3>3. エピポーラ拘束の計算式（ブラウザ内で実行中）</h3>
-        <p>事前計算で求めたF行列 $F$ は、左右の画像上の対応点 $\mathbf{x}$ と $\mathbf{x'}$ の間に以下の幾何学的な拘束（エピポーラ拘束）を与えます。</p>
+        <h3>3. エピポーラ拘束の計算式</h3>
+        <p>推定したF行列 $F$ は、左右の画像上の対応点 $\mathbf{x}$ と $\mathbf{x'}$ の間に以下の幾何学的な拘束（エピポーラ拘束）を与えます。</p>
         
         <div class="math-box">
             $$ \mathbf{x'}^T F \mathbf{x} = 0 $$
@@ -64,14 +63,13 @@
             $$ \mathbf{l'} = F \mathbf{x} = \begin{bmatrix} a \\ b \\ c \end{bmatrix} $$
         </div>
 
-        <p>この結果得られたベクトル $\mathbf{l'} = [a, b, c]^T$ が、まさに右画像上での直線の方程式を表しています。</p>
+        <p>この結果得られたベクトル $\mathbf{l'} = [a, b, c]^T$ が、右画像上での直線の方程式を表しています。</p>
 
         <div class="math-box">
             $$ a x' + b y' + c = 0 $$
         </div>
 
-        <p><b>この計算なら、JavaScriptでも一瞬です！</b><br>
-        このWebアプリでは、ハードコードされたF行列を使って、クリックされるたびにこの <code>l' = F * x</code> の行列演算を行い、Canvas上に直線を引いています。</p>
+        <p>デモ画面では、クリックされるたびにこの <code>l' = F * x</code> の行列演算を行い、Canvas上にエピポーラ線を引いています。</p>
     </div>
 
     <script>
