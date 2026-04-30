@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <title>PnP & RANSAC Interactive Demo</title>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <!-- 1. polyfillのエラー(ERR_CONNECTION_RESET)対策として CDNを cdnjs または unpkg に変更するか、不要な場合は削除 -->
+    <!-- MathJax は最近のブラウザならES6 polyfillなしでも動くため、安定した jsdelivr のみを使用 -->
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();"></script>
+    
+    <!-- 2. OpenCV.jsのロードエラー(NotSameOrigin)対策: 
+         docs.opencv.orgは別ドメインからの直リンク(CORS/COOP)をブロックする設定になっているため、
+         公式推奨の jsdelivr や unpkg を使用する -->
+    <script async src="https://cdn.jsdelivr.net/gh/ucisysarch/opencvjs@master/opencv.js" onload="onOpenCvReady();" onerror="document.getElementById('status').innerText = 'OpenCV.jsのロードに失敗しました';"></script>
+    
     <style>
         body { font-family: sans-serif; background: #1e1e1e; color: #fff; text-align: center; margin: 0; padding: 20px; line-height: 1.6; }
         .canvas-container { position: relative; display: inline-block; background: #000; border: 2px solid #555; border-radius: 4px; margin-top: 20px; }
@@ -21,7 +27,7 @@
         .nav-link:hover { text-decoration: underline; }
         .status { color: #ffeb3b; font-weight: bold; margin-bottom: 10px; }
         
-        .legend { display: flex; justify-content: center; gap: 20px; margin-top: 10px; }
+        .legend { display: flex; justify-content: center; gap: 20px; margin-top: 10px; flex-wrap: wrap; }
         .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
         .box { width: 16px; height: 16px; border-radius: 3px; }
         .box.gt { background: rgba(255, 255, 255, 0.2); border: 1px dashed #fff; }
@@ -73,22 +79,20 @@
         let cvReady = false;
         
         // 3Dオブジェクト (シンプルな家の形: Cube + Roof)
-        // サイズは 2x2x2 程度
         const objPointsArray = [
             [-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], // Base
             [-1, -1, -2], [1, -1, -2], [1, 1, -2], [-1, 1, -2], // Top of walls
             [0, -1, -3], [0, 1, -3] // Roof ridge
         ];
         
-        // ワイヤーフレームを描画するためのインデックス接続
         const edges = [
-            [0,1], [1,2], [2,3], [3,0], // Base
-            [4,5], [5,6], [6,7], [7,4], // Top
-            [0,4], [1,5], [2,6], [3,7], // Pillars
-            [4,8], [5,8], [6,9], [7,9], [8,9] // Roof
+            [0,1], [1,2], [2,3], [3,0], 
+            [4,5], [5,6], [6,7], [7,4], 
+            [0,4], [1,5], [2,6], [3,7], 
+            [4,8], [5,8], [6,9], [7,9], [8,9] 
         ];
 
-        // カメラ内部パラメータ (VGAサイズ想定)
+        // カメラ内部パラメータ
         const fx = 500, fy = 500, cx = 320, cy = 240;
         const cameraMatrixArray = [
             fx,  0, cx,
@@ -96,16 +100,13 @@
              0,  0,  1
         ];
 
-        // 真のカメラ姿勢 (少し斜め上から家を見下ろす)
-        // rvec = [-0.5, 0.5, 0], tvec = [0, 0, 8]
+        // 真のカメラ姿勢
         const trueRvecArray = [-0.6, 0.5, 0.0];
         const trueTvecArray = [0.0, 1.0, 7.0];
 
-        let imgPoints = []; // 画面上の青い点 (ユーザーが動かせる)
-        
+        let imgPoints = []; 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        
         let dragIdx = -1;
 
         function onOpenCvReady() {
@@ -115,7 +116,6 @@
         }
 
         function initDemo() {
-            // 真の姿勢を使って初期の2D投影点を計算する
             const objPtsMat = cv.matFromArray(objPointsArray.length, 3, cv.CV_32FC1, objPointsArray.flat());
             const camMat = cv.matFromArray(3, 3, cv.CV_64FC1, cameraMatrixArray);
             const distCoeffs = cv.matFromArray(4, 1, cv.CV_64FC1, [0,0,0,0]);
@@ -134,7 +134,6 @@
                 });
             }
 
-            // Cleanup
             objPtsMat.delete(); camMat.delete(); distCoeffs.delete();
             rvec.delete(); tvec.delete(); imgPtsMat.delete();
 
@@ -150,39 +149,34 @@
             const camMat = cv.matFromArray(3, 3, cv.CV_64FC1, cameraMatrixArray);
             const distCoeffs = cv.matFromArray(4, 1, cv.CV_64FC1, [0,0,0,0]);
 
-            // 1. 真の姿勢を描画 (薄い点線)
+            // 1. 真の姿勢
             const trueRvec = cv.matFromArray(3, 1, cv.CV_64FC1, trueRvecArray);
             const trueTvec = cv.matFromArray(3, 1, cv.CV_64FC1, trueTvecArray);
             drawWireframe(objPtsMat, trueRvec, trueTvec, camMat, distCoeffs, 'rgba(255,255,255,0.2)', true);
             trueRvec.delete(); trueTvec.delete();
 
-            // 現在の imgPoints (ユーザー編集込み) をMat化
             const flatImgPts = [];
             imgPoints.forEach(p => { flatImgPts.push(p.x, p.y); });
             const currentImgPtsMat = cv.matFromArray(imgPoints.length, 2, cv.CV_32FC1, flatImgPts);
 
+            // 2. 通常 PnP
             const rvecEst = new cv.Mat();
             const tvecEst = new cv.Mat();
-
-            // 2. 通常の PnP (赤)
-            // 外れ値があると結果が崩れる
             try {
                 cv.solvePnP(objPtsMat, currentImgPtsMat, camMat, distCoeffs, rvecEst, tvecEst, false, cv.SOLVEPNP_ITERATIVE);
                 drawWireframe(objPtsMat, rvecEst, tvecEst, camMat, distCoeffs, '#e53935');
             } catch(e) {}
 
-            // 3. RANSAC PnP (緑)
-            // 外れ値があっても耐える
+            // 3. RANSAC PnP
             const rvecRansac = new cv.Mat();
             const tvecRansac = new cv.Mat();
             const inliers = new cv.Mat();
             try {
-                // iterationsCount=100, reprojectionError=8.0, confidence=0.99
                 cv.solvePnPRansac(objPtsMat, currentImgPtsMat, camMat, distCoeffs, rvecRansac, tvecRansac, false, 100, 8.0, 0.99, inliers);
                 drawWireframe(objPtsMat, rvecRansac, tvecRansac, camMat, distCoeffs, '#4caf50');
             } catch(e) {}
 
-            // 4. 2Dポイントの描画 (青丸)
+            // 4. 2Dポイント
             imgPoints.forEach((p, idx) => {
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 6, 0, 2*Math.PI);
@@ -193,7 +187,6 @@
                 ctx.stroke();
             });
 
-            // Cleanup
             objPtsMat.delete(); camMat.delete(); distCoeffs.delete(); currentImgPtsMat.delete();
             rvecEst.delete(); tvecEst.delete(); rvecRansac.delete(); tvecRansac.delete(); inliers.delete();
         }
@@ -223,12 +216,11 @@
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
             });
-            ctx.setLineDash([]); // reset
+            ctx.setLineDash([]);
 
             projectedMat.delete();
         }
 
-        // --- マウス操作 ---
         function getMousePos(evt) {
             const rect = canvas.getBoundingClientRect();
             return {
@@ -239,8 +231,7 @@
 
         canvas.addEventListener('mousedown', (e) => {
             const pos = getMousePos(e);
-            // クリックした位置に一番近い点を探す
-            let minDist = 15; // 掴める判定半径
+            let minDist = 15;
             dragIdx = -1;
             imgPoints.forEach((p, i) => {
                 const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
