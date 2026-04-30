@@ -18,15 +18,17 @@
         .explanation { background: #2d2d2d; padding: 20px; border-radius: 8px; max-width: 800px; margin: 30px auto; text-align: left; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .matches-img { max-width: 100%; height: auto; border: 1px solid #555; border-radius: 4px; margin-top: 10px; }
         .math-box { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 1.1em; text-align: center; }
+        .btn-clear { margin-top: 15px; padding: 8px 16px; background: #e53935; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .btn-clear:hover { background: #ef5350; }
     </style>
 </head>
 <body>
     <h1>Epipolar Geometry Interactive Demo</h1>
-    <p style="text-align: center;">左の画像をクリックすると、対応するエピポーラ線が右の画像に描画されます。</p>
+    <p style="text-align: center;">左右どちらの画像をクリックしても、反対側の画像にエピポーラ線が描画されます。<br>複数回クリックすると、すべての線が一点（エピポール）で交わることが確認できます。</p>
     
     <div class="container">
         <div class="canvas-container">
-            <h3 style="margin-bottom: 10px; color: #fff;">Left Image (Click Me!)</h3>
+            <h3 style="margin-bottom: 10px; color: #fff;">Left Image</h3>
             <canvas id="canvasLeft" width="640" height="480"></canvas>
         </div>
         <div class="canvas-container">
@@ -34,23 +36,26 @@
             <canvas id="canvasRight" width="640" height="480"></canvas>
         </div>
     </div>
+    
+    <div>
+        <button class="btn-clear" onclick="clearAll()">Clear Lines</button>
+    </div>
 
     <div class="explanation">
         <h2>💡 エピポーラ線の計算プロセス</h2>
-        <p>このデモでは、事前の画像処理プロセスによって計算されたF行列（Fundamental Matrix）を使用して、クリックした点に対応するエピポーラ線をリアルタイムに描画しています。</p>
         
         <h3>1. 特徴点抽出とマッチング (SIFT + FLANN)</h3>
         <p>まず、左右の画像から SIFT (Scale-Invariant Feature Transform) を用いて特徴点を抽出します。その後、FLANNベースのマッチングを行い、Lowe's ratio test によって信頼性の高いペアだけを残しました。</p>
         
         <h3>2. 外れ値除去とF行列の推定 (LMedS / RANSAC)</h3>
-        <p>抽出されたマッチングには誤対応（外れ値）が含まれるため、ロバスト推定手法（今回は LMedS：Least Median of Squares）を用いて正しい対応関係（インライア）のみを抽出しながら、3×3の基礎行列（F行列）を求めました。</p>
+        <p>抽出されたマッチングには誤対応（外れ値）が含まれるため、ロバスト推定手法（LMedS）を用いて正しい対応関係（インライア）のみを抽出しながら、3×3の基礎行列（F行列）を求めました。</p>
         
         <p>以下の画像は、F行列の推定に実際に使われた「インライアのマッチング」を緑色の線で結んだものです。</p>
         <div style="text-align: center;">
             <img src="matches.jpg" alt="特徴点マッチング結果" class="matches-img">
         </div>
 
-        <h3>3. エピポーラ拘束の計算式</h3>
+        <h3>3. エピポーラ拘束の計算式（左から右へ）</h3>
         <p>推定したF行列 $F$ は、左右の画像上の対応点 $\mathbf{x}$ と $\mathbf{x'}$ の間に以下の幾何学的な拘束（エピポーラ拘束）を与えます。</p>
         
         <div class="math-box">
@@ -63,13 +68,23 @@
             $$ \mathbf{l'} = F \mathbf{x} = \begin{bmatrix} a \\ b \\ c \end{bmatrix} $$
         </div>
 
-        <p>この結果得られたベクトル $\mathbf{l'} = [a, b, c]^T$ が、右画像上での直線の方程式を表しています。</p>
+        <p>このベクトル $\mathbf{l'} = [a, b, c]^T$ が、右画像上での直線の方程式 $ax' + by' + c = 0$ を表しています。</p>
+
+        <h3>4. 転置を用いた双方向計算（右から左へ）</h3>
+        <p>では、右側の画像で $\mathbf{x'}$ をクリックした場合はどうなるでしょうか？ 式を変形すると以下のようになります。</p>
 
         <div class="math-box">
-            $$ a x' + b y' + c = 0 $$
+            $$ \mathbf{x}^T F^T \mathbf{x'} = 0 $$
         </div>
 
-        <p>デモ画面では、クリックされるたびにこの <code>l' = F * x</code> の行列演算を行い、Canvas上にエピポーラ線を引いています。</p>
+        <p>つまり、右画像上の点 $\mathbf{x'}$ に対応する「左画像上のエピポーラ線」$\mathbf{l}$ は、F行列の転置行列 $F^T$ を掛けることで求まります。</p>
+
+        <div class="math-box">
+            $$ \mathbf{l} = F^T \mathbf{x'} $$
+        </div>
+
+        <h3>5. エピポール（Epipole）</h3>
+        <p>画像内の複数の場所をクリックしていくと、反対側の画像に描画されたすべての線が「ある一点」で交差することがわかります。この交点が<b>エピポール（Epipole）</b>です。エピポールは、もう一方のカメラの中心が現在の画像の画像面上に投影された点であり、すべてのエピポーラ線はこの点を通るという数学的な性質があります。</p>
     </div>
 
     <script>
@@ -85,61 +100,131 @@
             [-0.0007782985589519366, 0.002402366628324919, 1.0]
         ];
 
+        // Fの転置行列 (F^T)
+        const Ft = [
+            [F[0][0], F[1][0], F[2][0]],
+            [F[0][1], F[1][1], F[2][1]],
+            [F[0][2], F[1][2], F[2][2]]
+        ];
+
         const imgL = new Image();
         const imgR = new Image();
         imgL.src = "left.jpg";
         imgR.src = "right.jpg";
 
-        let linesData = [];
-        const colors = ['#FF3366', '#33CCFF', '#66FF66', '#FFCC00', '#CC66FF'];
+        let clicksL = [];
+        let clicksR = [];
+        let linesOnR = []; // 左クリックにより生成された右側の線
+        let linesOnL = []; // 右クリックにより生成された左側の線
+        
+        const colors = ['#FF3366', '#33CCFF', '#66FF66', '#FFCC00', '#CC66FF', '#FF9933', '#33FF99'];
         let clickCount = 0;
 
-        imgL.onload = () => ctxL.drawImage(imgL, 0, 0, canvasL.width, canvasL.height);
-        imgR.onload = () => ctxR.drawImage(imgR, 0, 0, canvasR.width, canvasR.height);
+        function render() {
+            // 左側の描画
+            ctxL.drawImage(imgL, 0, 0, canvasL.width, canvasL.height);
+            // 左側に右クリックから生成された線を描画
+            linesOnL.forEach(item => {
+                ctxL.beginPath();
+                ctxL.moveTo(item.x0, item.y0);
+                ctxL.lineTo(item.x1, item.y1);
+                ctxL.strokeStyle = item.color;
+                ctxL.lineWidth = 2;
+                ctxL.stroke();
+            });
+            // 左クリックの点
+            clicksL.forEach(item => drawPoint(ctxL, item.x, item.y, item.color));
 
-        function redrawRight() {
+            // 右側の描画
             ctxR.drawImage(imgR, 0, 0, canvasR.width, canvasR.height);
-            linesData.forEach((line, i) => {
-                const c = colors[i % colors.length];
+            // 右側に左クリックから生成された線を描画
+            linesOnR.forEach(item => {
                 ctxR.beginPath();
-                ctxR.moveTo(line.x0, line.y0);
-                ctxR.lineTo(line.x1, line.y1);
-                ctxR.strokeStyle = c;
+                ctxR.moveTo(item.x0, item.y0);
+                ctxR.lineTo(item.x1, item.y1);
+                ctxR.strokeStyle = item.color;
                 ctxR.lineWidth = 2;
                 ctxR.stroke();
             });
+            // 右クリックの点
+            clicksR.forEach(item => drawPoint(ctxR, item.x, item.y, item.color));
         }
 
-        canvasL.addEventListener('click', (e) => {
-            const rect = canvasL.getBoundingClientRect();
-            const scaleX = canvasL.width / rect.width;
-            const scaleY = canvasL.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
-            
-            const color = colors[clickCount % colors.length];
-            clickCount++;
+        imgL.onload = render;
+        imgR.onload = render;
 
-            ctxL.beginPath();
-            ctxL.arc(x, y, 4, 0, 2 * Math.PI);
-            ctxL.fillStyle = color;
-            ctxL.fill();
-            ctxL.lineWidth = 1.5;
-            ctxL.strokeStyle = 'white';
-            ctxL.stroke();
+        function clearAll() {
+            clicksL = [];
+            clicksR = [];
+            linesOnL = [];
+            linesOnR = [];
+            clickCount = 0;
+            render();
+        }
 
-            const a = F[0][0]*x + F[0][1]*y + F[0][2];
-            const b = F[1][0]*x + F[1][1]*y + F[1][2];
-            const c = F[2][0]*x + F[2][1]*y + F[2][2];
+        function drawPoint(ctx, x, y, color) {
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+        }
 
-            const width = canvasR.width;
+        // 係数 a,b,c からキャンバスの両端の描画座標を計算するヘルパー
+        function getLineEndpoints(a, b, c, width) {
+            // y = -(ax + c)/b
             const y0 = -c / b;
             const x0 = 0;
             const y1 = -(a * width + c) / b;
             const x1 = width;
+            
+            // 描画が画面外へ突き抜けてもCanvasのクリッピングが効くので単純に0からwidthで計算
+            // （ただしbが0に近い特異点は考慮していませんが、一般的な画像では問題ありません）
+            return {x0, y0, x1, y1};
+        }
 
-            linesData.push({ x0: x0, y0: y0, x1: x1, y1: y1 });
-            redrawRight();
+        canvasL.addEventListener('click', (e) => {
+            const rect = canvasL.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvasL.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvasL.height / rect.height);
+            
+            const color = colors[clickCount % colors.length];
+            clickCount++;
+
+            clicksL.push({x, y, color});
+
+            // l' = F * x
+            const a = F[0][0]*x + F[0][1]*y + F[0][2];
+            const b = F[1][0]*x + F[1][1]*y + F[1][2];
+            const c = F[2][0]*x + F[2][1]*y + F[2][2];
+
+            const pts = getLineEndpoints(a, b, c, canvasR.width);
+            linesOnR.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
+            
+            render();
+        });
+
+        canvasR.addEventListener('click', (e) => {
+            const rect = canvasR.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvasR.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvasR.height / rect.height);
+            
+            const color = colors[clickCount % colors.length];
+            clickCount++;
+
+            clicksR.push({x, y, color});
+
+            // l = F^T * x'
+            const a = Ft[0][0]*x + Ft[0][1]*y + Ft[0][2];
+            const b = Ft[1][0]*x + Ft[1][1]*y + Ft[1][2];
+            const c = Ft[2][0]*x + Ft[2][1]*y + Ft[2][2];
+
+            const pts = getLineEndpoints(a, b, c, canvasL.width);
+            linesOnL.push({ x0: pts.x0, y0: pts.y0, x1: pts.x1, y1: pts.y1, color: color });
+            
+            render();
         });
     </script>
 </body>
