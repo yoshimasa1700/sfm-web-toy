@@ -110,29 +110,34 @@
         let dragIdx = -1;
 
         function onOpenCvReady() {
-            // OpenCV.js は WebAssembly を非同期ロードするため、scriptのonload直後はまだクラス(cv.Mat等)が未定義です。
-            // onRuntimeInitialized コールバックが呼ばれるまで待つ必要があります。
             if (cv instanceof Promise) {
                 cv.then((target) => {
                     window.cv = target;
                     startDemo();
-                });
+                }).catch(err => showError(err));
             } else if (cv.Mat) {
-                // すでに初期化されている場合
                 startDemo();
             } else {
-                // 初期化完了を待つ
                 cv['onRuntimeInitialized'] = () => {
                     startDemo();
                 };
             }
         }
 
+        function showError(err) {
+            document.getElementById('status').innerText = "エラー: " + err;
+            document.getElementById('status').style.color = "red";
+            console.error(err);
+        }
+
         function startDemo() {
-            document.getElementById('status').innerText = "";
-            document.getElementById('status').style.display = "none";
-            cvReady = true;
-            initDemo();
+            try {
+                document.getElementById('status').innerText = "";
+                cvReady = true;
+                initDemo();
+            } catch (err) {
+                showError(err);
+            }
         }
 
         function initDemo() {
@@ -162,8 +167,8 @@
 
         function updateAndRender() {
             if (!cvReady) return;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             const objPtsMat = cv.matFromArray(objPointsArray.length, 3, cv.CV_32FC1, objPointsArray.flat());
             const camMat = cv.matFromArray(3, 3, cv.CV_64FC1, cameraMatrixArray);
@@ -209,6 +214,9 @@
 
             objPtsMat.delete(); camMat.delete(); distCoeffs.delete(); currentImgPtsMat.delete();
             rvecEst.delete(); tvecEst.delete(); rvecRansac.delete(); tvecRansac.delete(); inliers.delete();
+            } catch (err) {
+                showError(err);
+            }
         }
 
         function drawWireframe(objPtsMat, rvec, tvec, camMat, distCoeffs, color, isDashed=false) {
