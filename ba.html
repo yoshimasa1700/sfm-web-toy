@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>BA Playground</title>
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <script src="i18n.js"></script>
   <style>
     body { font-family: sans-serif; background:#1e1e1e; color:#fff; margin:0; padding:20px; text-align:center; }
@@ -22,6 +32,10 @@
     canvas { background:#111; border:1px solid #555; border-radius:8px; max-width:100%; height:auto; }
     .stats { font-family: monospace; color:#a5d6a7; }
     label { color:#ddd; }
+    .math-box { background:#111; padding:15px; border-radius:8px; overflow-x:auto; font-size:1.05em; text-align:center; margin:15px auto; max-width:720px; }
+    .explanation { background:#2d2d2d; padding:20px; border-radius:8px; max-width:900px; margin:30px auto; text-align:left; box-shadow:0 4px 6px rgba(0,0,0,0.3); }
+    h2 { margin-top: 28px; border-bottom: 1px solid #444; padding-bottom: 5px; display: inline-block; color:#81c784; }
+    h3 { color:#81c784; }
   </style>
 </head>
 <body>
@@ -59,8 +73,31 @@
     </div>
   </div>
 
-  <p data-i18n="body1">白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。<b>観測線を表示</b> をONにすると、各3D点から各カメラへの観測関係が可視化されます。<b>Add Outlier</b> で外れ値を混ぜ、<b>Robust BA</b> をON/OFFして違いを見てください。</p>
-  <p data-i18n="body2">言い換えると BA は、<b>「3D点はどこにあるべきか」</b> と <b>「カメラはどこにいるべきか」</b> をバラバラに決めるのではなく、<b>両方を同時に少しずつ直していく</b>最適化です。これによって、初期推定の小さなズレが全体として整い、よりシャープな点群や安定したカメラ軌跡が得られます。</p>
+  <div class="explanation">
+    <p data-i18n="body1">白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。<b>観測線を表示</b> をONにすると、各3D点から各カメラへの観測関係が可視化されます。<b>Add Outlier</b> で外れ値を混ぜ、<b>Robust BA</b> をON/OFFして違いを見てください。</p>
+    <p data-i18n="body2">言い換えると BA は、<b>「3D点はどこにあるべきか」</b> と <b>「カメラはどこにいるべきか」</b> をバラバラに決めるのではなく、<b>両方を同時に少しずつ直していく</b>最適化です。これによって、初期推定の小さなズレが全体として整い、よりシャープな点群や安定したカメラ軌跡が得られます。</p>
+
+    <h2 data-i18n="math_title">📐 BA を数式でみる</h2>
+    <p data-i18n="math_intro">Bundle Adjustment では、すべてのカメラ姿勢 $\mathbf{T}_i$ と、すべての3D点 $\mathbf{X}_j$ を変数として、観測された画像点 $\mathbf{u}_{ij}$ と再投影結果との誤差を最小化します。</p>
+    <div class="math-box">$$
+      \min_{\{\mathbf{T}_i\},\{\mathbf{X}_j\}} \sum_{i,j} \left\| \mathbf{u}_{ij} - \pi(\mathbf{T}_i, \mathbf{X}_j) \right\|^2
+    $$</div>
+    <p data-i18n="math_explain1">ここで $\pi(\mathbf{T}_i, \mathbf{X}_j)$ は、3D点 $\mathbf{X}_j$ をカメラ $i$ に投影したときの2D位置です。つまり BA は、<b>「見えているはずの位置」と「実際に観測された位置」のズレ</b>を全部まとめて最小にします。</p>
+
+    <h3 data-i18n="math_residual_title">Residual（残差）とは？</h3>
+    <p data-i18n="math_residual_body">各観測に対して、残差は次のように書けます。</p>
+    <div class="math-box">$$
+      \mathbf{r}_{ij} = \mathbf{u}_{ij} - \pi(\mathbf{T}_i, \mathbf{X}_j)
+    $$</div>
+    <p data-i18n="math_residual_body2">このページの Residual Heatmap は、まさに各 $\mathbf{r}_{ij}$ の大きさをカメラごと・点ごとに可視化したものです。赤いセルほど、その観測がうまく説明できていません。</p>
+
+    <h3 data-i18n="math_robust_title">Robust BA は何をしている？</h3>
+    <p data-i18n="math_robust_body">外れ値があると、単純な二乗誤差はその大きな残差に引っ張られます。そこで、残差が大きすぎる観測の影響を弱めるロバスト損失を使います。このデモでは Huber 風の重み付けを模しています。</p>
+    <div class="math-box">$$
+      \min \sum_{i,j} \rho\left(\left\| \mathbf{r}_{ij} \right\|^2\right)
+    $$</div>
+    <p data-i18n="math_robust_body2">つまり Robust BA では、<b>おかしな観測が全体解を壊さないようにする</b>ことが目的です。</p>
+  </div>
 
   <script>
     const scene = document.getElementById('scene');
@@ -170,11 +207,11 @@
     function perturb() {
       state = JSON.parse(JSON.stringify(truth));
       outlierIndex = null;
-      state.points.forEach((p, i) => {
+      state.points.forEach((p) => {
         p.x += (Math.random() - 0.5) * 0.9;
         p.z += (Math.random() - 0.5) * 0.9;
       });
-      state.cameras.forEach((c, i) => {
+      state.cameras.forEach((c) => {
         c.x += (Math.random() - 0.5) * 0.6;
         c.z += (Math.random() - 0.5) * 0.6;
         c.yaw += (Math.random() - 0.5) * 0.25;
@@ -197,6 +234,7 @@
       running = false;
       state = JSON.parse(JSON.stringify(truth));
       iter = 0;
+      outlierIndex = null;
       history = [totalError()];
       render();
     }
@@ -220,12 +258,8 @@
     function render() {
       sctx.clearRect(0,0,scene.width,scene.height);
       sctx.strokeStyle = '#333';
-      for (let i = 0; i < 8; i++) {
-        sctx.beginPath(); sctx.moveTo(0, 60 + i*40); sctx.lineTo(scene.width, 60 + i*40); sctx.stroke();
-      }
-      for (let i = 0; i < 10; i++) {
-        sctx.beginPath(); sctx.moveTo(40 + i*60, 0); sctx.lineTo(40 + i*60, scene.height); sctx.stroke();
-      }
+      for (let i = 0; i < 8; i++) { sctx.beginPath(); sctx.moveTo(0, 60 + i*40); sctx.lineTo(scene.width, 60 + i*40); sctx.stroke(); }
+      for (let i = 0; i < 10; i++) { sctx.beginPath(); sctx.moveTo(40 + i*60, 0); sctx.lineTo(40 + i*60, scene.height); sctx.stroke(); }
 
       truth.points.forEach(p => {
         const c = worldToCanvas(p.x, p.z);
@@ -331,9 +365,60 @@
   </script>
   <script>
   window.PAGE_I18N = {
-    ja: { back:'← ポートフォリオに戻る', title:'BA Playground', intro1:'Bundle Adjustment は、複数カメラと3D点群をまとめて最適化し、<b>再投影誤差</b>を最小化する処理です。このデモでは、上から見たシーン内で、ズレたカメラと点群が最適化によって少しずつ整っていく様子を可視化します。まず <b>Perturb</b> で初期値を壊し、次に <b>Optimize</b> を押してみてください。', intro2:'BA は SfM や SLAM の最後の仕上げとして使われます。F行列やPnPで「だいたい合っている」カメラ姿勢と点群を得たあと、それら全体を同時に見直して、<b>どのカメラから見ても矛盾が最小になるように全体調整する</b>のが BA の役割です。', btn_perturb:'Perturb', btn_outlier:'Add Outlier', btn_optimize:'Optimize', btn_step:'1 Step', btn_reset:'Reset', toggle_robust:'Robust BA (Huber風)', toggle_obs:'観測線を表示', panel_scene:'Top View Scene', panel_error:'Error Curve', panel_residual:'Residual Heatmap', body1:'白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。<b>観測線を表示</b> をONにすると、各3D点から各カメラへの観測関係が可視化されます。<b>Add Outlier</b> で外れ値を混ぜ、<b>Robust BA</b> をON/OFFして違いを見てください。', body2:'言い換えると BA は、<b>「3D点はどこにあるべきか」</b> と <b>「カメラはどこにいるべきか」</b> をバラバラに決めるのではなく、<b>両方を同時に少しずつ直していく</b>最適化です。これによって、初期推定の小さなズレが全体として整い、よりシャープな点群や安定したカメラ軌跡が得られます。' },
-    en: { back:'← Back to portfolio', title:'BA Playground', intro1:'Bundle Adjustment optimizes multiple cameras and 3D points together by minimizing <b>reprojection error</b>. This demo visualizes how perturbed cameras and points gradually become consistent again. First click <b>Perturb</b>, then press <b>Optimize</b>.', intro2:'BA is often used as the final polishing stage of SfM and SLAM. After F-matrix based geometry and PnP give you an approximately correct reconstruction, BA jointly refines everything so the whole scene becomes as consistent as possible from every camera view.', btn_perturb:'Perturb', btn_outlier:'Add Outlier', btn_optimize:'Optimize', btn_step:'1 Step', btn_reset:'Reset', toggle_robust:'Robust BA (Huber-like)', toggle_obs:'Show observation lines', panel_scene:'Top View Scene', panel_error:'Error Curve', panel_residual:'Residual Heatmap', body1:'The white dashed geometry is the ground truth, while the colored geometry is the current estimate. <b>Red triangles</b> are cameras and <b>blue dots</b> are 3D points. During optimization, camera poses and points are updated so their projections better match the observations. Turn on <b>Show observation lines</b> to visualize the relation between cameras and points. Use <b>Add Outlier</b> and compare with <b>Robust BA</b> on or off.', body2:'In other words, BA does not decide <b>where 3D points should be</b> and <b>where cameras should be</b> separately. It optimizes both together. This global adjustment removes small initialization errors and yields a sharper point cloud and a more stable camera trajectory.' },
-    zh: { back:'← 返回作品集', title:'BA Playground', intro1:'Bundle Adjustment 会同时优化多台相机与三维点，通过最小化<b>重投影误差</b>来让整体结果更一致。这个演示会可视化被扰动后的相机与点云如何逐步恢复。先点击 <b>Perturb</b>，再点击 <b>Optimize</b>。', intro2:'BA 常常作为 SfM 和 SLAM 的最后精修步骤。在 F 矩阵和 PnP 给出“大致正确”的结果之后，BA 会把所有相机与点统一放进一个优化问题里一起微调，使整个场景在所有视角下尽量一致。', btn_perturb:'扰动', btn_outlier:'加入外点', btn_optimize:'优化', btn_step:'单步', btn_reset:'重置', toggle_robust:'鲁棒 BA（类似 Huber）', toggle_obs:'显示观测线', panel_scene:'俯视场景', panel_error:'误差曲线', panel_residual:'残差热图', body1:'白色虚线表示真值，彩色几何表示当前估计。<b>红色三角形</b>是相机，<b>蓝色点</b>是三维点。优化过程中，相机位置与点云会逐步更新，使投影更接近观测结果。打开<b>显示观测线</b>可以看到相机与点之间的观测关系。使用<b>加入外点</b>并比较<b>鲁棒 BA</b>开关的差异。', body2:'换句话说，BA 并不是分别决定<b>三维点应该在哪里</b>和<b>相机应该在哪里</b>，而是把两者放在同一个优化问题里同时调整。这样可以消除初始估计的小误差，得到更清晰的点云和更稳定的相机轨迹。' }
+    ja: {
+      back:'← ポートフォリオに戻る', title:'BA Playground',
+      intro1:'Bundle Adjustment は、複数カメラと3D点群をまとめて最適化し、<b>再投影誤差</b>を最小化する処理です。このデモでは、上から見たシーン内で、ズレたカメラと点群が最適化によって少しずつ整っていく様子を可視化します。まず <b>Perturb</b> で初期値を壊し、次に <b>Optimize</b> を押してみてください。',
+      intro2:'BA は SfM や SLAM の最後の仕上げとして使われます。F行列やPnPで「だいたい合っている」カメラ姿勢と点群を得たあと、それら全体を同時に見直して、<b>どのカメラから見ても矛盾が最小になるように全体調整する</b>のが BA の役割です。',
+      btn_perturb:'Perturb', btn_outlier:'Add Outlier', btn_optimize:'Optimize', btn_step:'1 Step', btn_reset:'Reset',
+      toggle_robust:'Robust BA (Huber風)', toggle_obs:'観測線を表示', panel_scene:'Top View Scene', panel_error:'Error Curve', panel_residual:'Residual Heatmap',
+      body1:'白い点線が真値、色付きが現在の推定値です。<b>赤い三角形</b>がカメラ、<b>青い点</b>が3D点です。最適化中は、各点を「観測された投影位置」に近づけるように、カメラ位置と点群が少しずつ更新されます。<b>観測線を表示</b> をONにすると、各3D点から各カメラへの観測関係が可視化されます。<b>Add Outlier</b> で外れ値を混ぜ、<b>Robust BA</b> をON/OFFして違いを見てください。',
+      body2:'言い換えると BA は、<b>「3D点はどこにあるべきか」</b> と <b>「カメラはどこにいるべきか」</b> をバラバラに決めるのではなく、<b>両方を同時に少しずつ直していく</b>最適化です。これによって、初期推定の小さなズレが全体として整い、よりシャープな点群や安定したカメラ軌跡が得られます。',
+      math_title:'📐 BA を数式でみる',
+      math_intro:'Bundle Adjustment では、すべてのカメラ姿勢 $\\mathbf{T}_i$ と、すべての3D点 $\\mathbf{X}_j$ を変数として、観測された画像点 $\\mathbf{u}_{ij}$ と再投影結果との誤差を最小化します。',
+      math_explain1:'ここで $\\pi(\\mathbf{T}_i, \\mathbf{X}_j)$ は、3D点 $\\mathbf{X}_j$ をカメラ $i$ に投影したときの2D位置です。つまり BA は、<b>「見えているはずの位置」と「実際に観測された位置」のズレ</b>を全部まとめて最小にします。',
+      math_residual_title:'Residual（残差）とは？',
+      math_residual_body:'各観測に対して、残差は次のように書けます。',
+      math_residual_body2:'このページの Residual Heatmap は、まさに各 $\\mathbf{r}_{ij}$ の大きさをカメラごと・点ごとに可視化したものです。赤いセルほど、その観測がうまく説明できていません。',
+      math_robust_title:'Robust BA は何をしている？',
+      math_robust_body:'外れ値があると、単純な二乗誤差はその大きな残差に引っ張られます。そこで、残差が大きすぎる観測の影響を弱めるロバスト損失を使います。このデモでは Huber 風の重み付けを模しています。',
+      math_robust_body2:'つまり Robust BA では、<b>おかしな観測が全体解を壊さないようにする</b>ことが目的です。'
+    },
+    en: {
+      back:'← Back to portfolio', title:'BA Playground',
+      intro1:'Bundle Adjustment optimizes multiple cameras and 3D points together by minimizing <b>reprojection error</b>. This demo visualizes how perturbed cameras and points gradually become consistent again. First click <b>Perturb</b>, then press <b>Optimize</b>.',
+      intro2:'BA is often used as the final polishing stage of SfM and SLAM. After F-matrix based geometry and PnP give you an approximately correct reconstruction, BA jointly refines everything so the whole scene becomes as consistent as possible from every camera view.',
+      btn_perturb:'Perturb', btn_outlier:'Add Outlier', btn_optimize:'Optimize', btn_step:'1 Step', btn_reset:'Reset',
+      toggle_robust:'Robust BA (Huber-like)', toggle_obs:'Show observation lines', panel_scene:'Top View Scene', panel_error:'Error Curve', panel_residual:'Residual Heatmap',
+      body1:'The white dashed geometry is the ground truth, while the colored geometry is the current estimate. <b>Red triangles</b> are cameras and <b>blue dots</b> are 3D points. During optimization, camera poses and points are updated so their projections better match the observations. Turn on <b>Show observation lines</b> to visualize the relation between cameras and points. Use <b>Add Outlier</b> and compare with <b>Robust BA</b> on or off.',
+      body2:'In other words, BA does not decide <b>where 3D points should be</b> and <b>where cameras should be</b> separately. It optimizes both together. This global adjustment removes small initialization errors and yields a sharper point cloud and a more stable camera trajectory.',
+      math_title:'📐 BA in equations',
+      math_intro:'In Bundle Adjustment, all camera poses $\\mathbf{T}_i$ and all 3D points $\\mathbf{X}_j$ are treated as variables, and the goal is to minimize the error between observed image points $\\mathbf{u}_{ij}$ and their reprojections.',
+      math_explain1:'Here, $\\pi(\\mathbf{T}_i, \\mathbf{X}_j)$ denotes the 2D projection of point $\\mathbf{X}_j$ into camera $i$. BA therefore minimizes the discrepancy between <b>where a point should appear</b> and <b>where it was actually observed</b>.',
+      math_residual_title:'What is a residual?',
+      math_residual_body:'For each observation, the residual can be written as follows.',
+      math_residual_body2:'The Residual Heatmap on this page visualizes the magnitude of each $\\mathbf{r}_{ij}$ per camera and per point. Redder cells indicate observations that are poorly explained by the current estimate.',
+      math_robust_title:'What does Robust BA do?',
+      math_robust_body:'If outliers are present, ordinary squared error is dominated by those large residuals. A robust loss reduces the influence of such observations. In this demo, we mimic Huber-like weighting.',
+      math_robust_body2:'So the purpose of Robust BA is to keep a few bad observations from destroying the global solution.'
+    },
+    zh: {
+      back:'← 返回作品集', title:'BA Playground',
+      intro1:'Bundle Adjustment 会同时优化多台相机与三维点，通过最小化<b>重投影误差</b>来让整体结果更一致。这个演示会可视化被扰动后的相机与点云如何逐步恢复。先点击 <b>Perturb</b>，再点击 <b>Optimize</b>。',
+      intro2:'BA 常常作为 SfM 和 SLAM 的最后精修步骤。在 F 矩阵和 PnP 给出“大致正确”的结果之后，BA 会把所有相机与点统一放进一个优化问题里一起微调，使整个场景在所有视角下尽量一致。',
+      btn_perturb:'扰动', btn_outlier:'加入外点', btn_optimize:'优化', btn_step:'单步', btn_reset:'重置',
+      toggle_robust:'鲁棒 BA（类似 Huber）', toggle_obs:'显示观测线', panel_scene:'俯视场景', panel_error:'误差曲线', panel_residual:'残差热图',
+      body1:'白色虚线表示真值，彩色几何表示当前估计。<b>红色三角形</b>是相机，<b>蓝色点</b>是三维点。优化过程中，相机位置与点云会逐步更新，使投影更接近观测结果。打开<b>显示观测线</b>可以看到相机与点之间的观测关系。使用<b>加入外点</b>并比较<b>鲁棒 BA</b>开关的差异。',
+      body2:'换句话说，BA 并不是分别决定<b>三维点应该在哪里</b>和<b>相机应该在哪里</b>，而是把两者放在同一个优化问题里同时调整。这样可以消除初始估计的小误差，得到更清晰的点云和更稳定的相机轨迹。',
+      math_title:'📐 用公式理解 BA',
+      math_intro:'在 Bundle Adjustment 中，所有相机位姿 $\\mathbf{T}_i$ 与所有三维点 $\\mathbf{X}_j$ 都作为变量，目标是最小化观测到的图像点 $\\mathbf{u}_{ij}$ 与重投影结果之间的误差。',
+      math_explain1:'这里，$\\pi(\\mathbf{T}_i, \\mathbf{X}_j)$ 表示把三维点 $\\mathbf{X}_j$ 投影到相机 $i$ 后得到的二维位置。也就是说，BA 会把<b>“应该看到的位置”</b>与<b>“实际观测到的位置”</b>之间的偏差整体压到最小。',
+      math_residual_title:'什么是残差？',
+      math_residual_body:'对于每一个观测，残差可以写成下面这样。',
+      math_residual_body2:'本页中的 Residual Heatmap 正是在按“相机 × 点”的方式可视化每一个 $\\mathbf{r}_{ij}$ 的大小。越红的格子，说明当前估计越难解释该观测。',
+      math_robust_title:'Robust BA 在做什么？',
+      math_robust_body:'如果存在外点，普通二乘误差会被这些大残差主导。因此需要使用鲁棒损失来降低异常观测的影响。这个演示里使用的是类似 Huber 的加权方式。',
+      math_robust_body2:'也就是说，Robust BA 的目的，就是防止少数错误观测把整个全局解带偏。'
+    }
   };
   window.addEventListener('load', () => SFM_I18N.mountButtons());
   </script>
