@@ -52,35 +52,35 @@
     <h1 data-i18n="title">Camera Pose Estimation: PnP & RANSAC</h1>
     <p data-i18n="lead" style="text-align: center;">青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。</p>
     
-    <div id="status" class="status">OpenCV.js を読み込み中...</div>
+    <div id="status" class="status" data-i18n="status_loading">OpenCV.js を読み込み中...</div>
 
     <div class="canvas-container">
         <canvas id="canvas" width="640" height="480"></canvas>
     </div>
 
     <div class="legend">
-        <div class="legend-item"><div class="box gt"></div> 真の3Dオブジェクト（リファレンス）</div>
-        <div class="legend-item"><div class="box point"></div> 観測された2D点（ドラッグで移動可能）</div>
-        <div class="legend-item"><div class="box std"></div> 通常のPnPによる推定姿勢</div>
-        <div class="legend-item"><div class="box ransac"></div> RANSACによる推定姿勢</div>
+        <div class="legend-item"><div class="box gt"></div> <span data-i18n="legend_gt">真の3Dオブジェクト（リファレンス）</span></div>
+        <div class="legend-item"><div class="box point"></div> <span data-i18n="legend_point">観測された2D点（ドラッグで移動可能）</span></div>
+        <div class="legend-item"><div class="box std"></div> <span data-i18n="legend_std">通常のPnPによる推定姿勢</span></div>
+        <div class="legend-item"><div class="box ransac"></div> <span data-i18n="legend_ransac">RANSACによる推定姿勢</span></div>
     </div>
 
     <div class="explanation">
-        <h2>💡 PnP (Perspective-n-Point) とは？</h2>
-        <p>PnPは、「3D空間における物体の座標（3D点）」と、「それが画像上にどう写っているか（2D点）」のペアがいくつか分かっている時に、<b>「カメラが空間のどこにいて、どちらを向いているか（カメラの回転行列と並進ベクトル）」を逆算するアルゴリズム</b>です。</p>
-        <p>SfMやSLAM、AR（拡張現実）において、世界座標系におけるデバイスの位置を特定するためのコア技術です。</p>
+        <h2 data-i18n="sec1_title">💡 PnP (Perspective-n-Point) とは？</h2>
+        <p data-i18n="sec1_body1">PnPは、「3D空間における物体の座標（3D点）」と、「それが画像上にどう写っているか（2D点）」のペアがいくつか分かっている時に、<b>「カメラが空間のどこにいて、どちらを向いているか（カメラの回転行列と並進ベクトル）」を逆算するアルゴリズム</b>です。</p>
+        <p data-i18n="sec1_body2">SfMやSLAM、AR（拡張現実）において、世界座標系におけるデバイスの位置を特定するためのコア技術です。</p>
 
-        <h3>RANSAC（ランサック）の魔法</h3>
-        <p>実際の画像処理では、特徴点マッチングのミスにより「間違った2D-3Dのペア（外れ値 / Outlier）」が必ず混入します。<br>
+        <h3 data-i18n="sec2_title">RANSAC（ランサック）の魔法</h3>
+        <p data-i18n="sec2_body1">実際の画像処理では、特徴点マッチングのミスにより「間違った2D-3Dのペア（外れ値 / Outlier）」が必ず混入します。<br>
         通常のPnP（Least Squaresなど）はすべての点を使って誤差を最小化しようとするため、<b>たった1つの外れ値があるだけで推定結果（赤いワイヤーフレーム）が大きく引っ張られ、破綻してしまいます。</b></p>
 
-        <p>そこで <b>RANSAC (Random Sample Consensus)</b> の出番です。RANSACは以下を繰り返します：</p>
+        <p data-i18n="sec2_body2">そこで <b>RANSAC (Random Sample Consensus)</b> の出番です。RANSACは以下を繰り返します：</p>
         <ul>
-            <li>ランダムに少数の点（PnPなら最低4点）だけを選んでカメラ姿勢を仮計算する</li>
-            <li>その姿勢を使って他の全ての点を評価し、「矛盾しない点（インライア）」がいくつあるかを数える</li>
-            <li>これを何度も繰り返し、インライアが最も多かった仮説を「正解」として採用する</li>
+            <li data-i18n="sec2_li1">ランダムに少数の点（PnPなら最低4点）だけを選んでカメラ姿勢を仮計算する</li>
+            <li data-i18n="sec2_li2">その姿勢を使って他の全ての点を評価し、「矛盾しない点（インライア）」がいくつあるかを数える</li>
+            <li data-i18n="sec2_li3">これを何度も繰り返し、インライアが最も多かった仮説を「正解」として採用する</li>
         </ul>
-        <p>上のデモで青い点を大きく動かしても、緑色のワイヤーフレーム（RANSAC）がびくともしないのは、動かした点が「外れ値」として自動的に無視されているからです！</p>
+        <p data-i18n="sec2_body3">上のデモで青い点を大きく動かしても、緑色のワイヤーフレーム（RANSAC）がびくともしないのは、動かした点が「外れ値」として自動的に無視されているからです！</p>
     </div>
 
     <script>
@@ -309,17 +309,20 @@
         ja: {
           back: '← ポートフォリオに戻る',
           title: 'Camera Pose Estimation: PnP & RANSAC',
-          lead: '青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。'
+          lead: '青い点（2D特徴点）をドラッグして「誤対応（外れ値）」を作ってみてください。<br>通常のPnP（赤）とRANSAC付きPnP（緑）で、カメラ姿勢の推定結果がどう変わるかを確認できます。',
+          status_loading: 'OpenCV.js を読み込み中...', legend_gt: '真の3Dオブジェクト（リファレンス）', legend_point: '観測された2D点（ドラッグで移動可能）', legend_std: '通常のPnPによる推定姿勢', legend_ransac: 'RANSACによる推定姿勢', sec1_title: '💡 PnP (Perspective-n-Point) とは？', sec1_body1: 'PnPは、「3D空間における物体の座標（3D点）」と、「それが画像上にどう写っているか（2D点）」のペアがいくつか分かっている時に、<b>「カメラが空間のどこにいて、どちらを向いているか（カメラの回転行列と並進ベクトル）」を逆算するアルゴリズム</b>です。', sec1_body2: 'SfMやSLAM、AR（拡張現実）において、世界座標系におけるデバイスの位置を特定するためのコア技術です。', sec2_title: 'RANSAC（ランサック）の魔法', sec2_body1: '実際の画像処理では、特徴点マッチングのミスにより「間違った2D-3Dのペア（外れ値 / Outlier）」が必ず混入します。<br>通常のPnP（Least Squaresなど）はすべての点を使って誤差を最小化しようとするため、<b>たった1つの外れ値があるだけで推定結果（赤いワイヤーフレーム）が大きく引っ張られ、破綻してしまいます。</b>', sec2_body2: 'そこで <b>RANSAC (Random Sample Consensus)</b> の出番です。RANSACは以下を繰り返します：', sec2_li1:'ランダムに少数の点（PnPなら最低4点）だけを選んでカメラ姿勢を仮計算する', sec2_li2:'その姿勢を使って他の全ての点を評価し、「矛盾しない点（インライア）」がいくつあるかを数える', sec2_li3:'これを何度も繰り返し、インライアが最も多かった仮説を「正解」として採用する', sec2_body3:'上のデモで青い点を大きく動かしても、緑色のワイヤーフレーム（RANSAC）がびくともしないのは、動かした点が「外れ値」として自動的に無視されているからです！'
         },
         en: {
           back: '← Back to portfolio',
           title: 'Camera Pose Estimation: PnP & RANSAC',
-          lead: 'Drag the blue 2D feature points to create mismatched correspondences (outliers).<br>Compare how standard PnP in red and RANSAC-based PnP in green behave.'
+          lead: 'Drag the blue 2D feature points to create mismatched correspondences (outliers).<br>Compare how standard PnP in red and RANSAC-based PnP in green behave.',
+          status_loading:'Loading OpenCV.js...', legend_gt:'Ground-truth 3D object (reference)', legend_point:'Observed 2D points (draggable)', legend_std:'Pose estimated by standard PnP', legend_ransac:'Pose estimated by RANSAC PnP', sec1_title:'💡 What is PnP (Perspective-n-Point)?', sec1_body1:'PnP is an algorithm that estimates <b>where the camera is in space and which direction it is facing</b> from several pairs of 3D object points and their 2D image projections.', sec1_body2:'It is a core technique in SfM, SLAM, and AR for determining device pose in a world coordinate system.', sec2_title:'The magic of RANSAC', sec2_body1:'In real image processing, wrong 2D-3D correspondences (outliers) inevitably appear because feature matching is imperfect.<br>Standard PnP tries to minimize error using all points, so <b>even a single outlier can pull the estimated pose far away and break the solution.</b>', sec2_body2:'That is where <b>RANSAC (Random Sample Consensus)</b> becomes useful. It repeatedly does the following:', sec2_li1:'Randomly select a small subset of points (at least 4 for PnP) and compute a tentative camera pose', sec2_li2:'Evaluate all other points with that pose and count how many are consistent inliers', sec2_li3:'Repeat many times and adopt the hypothesis with the largest inlier set as the solution', sec2_body3:'In the demo above, even if you move a blue point aggressively, the green wireframe stays stable because the moved point is automatically treated as an outlier and ignored.'
         },
         zh: {
           back: '← 返回作品集',
           title: '相机位姿估计：PnP 与 RANSAC',
-          lead: '拖动蓝色的二维特征点来制造错误对应（外点）。<br>观察普通 PnP（红色）与带 RANSAC 的 PnP（绿色）在位姿估计上的差异。'
+          lead: '拖动蓝色的二维特征点来制造错误对应（外点）。<br>观察普通 PnP（红色）与带 RANSAC 的 PnP（绿色）在位姿估计上的差异。',
+          status_loading:'正在加载 OpenCV.js...', legend_gt:'真实三维物体（参考）', legend_point:'观测到的二维点（可拖动）', legend_std:'普通 PnP 估计的位姿', legend_ransac:'RANSAC 估计的位姿', sec1_title:'💡 什么是 PnP（Perspective-n-Point）？', sec1_body1:'PnP 是一种算法：当你知道若干个三维点，以及这些点在图像中的二维投影时，就可以反推出<b>相机在空间中的位置与朝向</b>。', sec1_body2:'它是 SfM、SLAM 和 AR 中用于确定设备在世界坐标系中位姿的核心技术。', sec2_title:'RANSAC 的魔法', sec2_body1:'在真实图像处理中，由于特征匹配并不完美，错误的 2D-3D 对应（外点）几乎一定会混入。<br>普通 PnP 会使用所有点最小化误差，所以<b>哪怕只有一个外点，也可能把结果严重拉偏。</b>', sec2_body2:'这时就需要 <b>RANSAC（随机采样一致性）</b>。它会反复执行以下步骤：', sec2_li1:'随机选取少量点（PnP 至少需要 4 个）计算一个临时位姿', sec2_li2:'用这个位姿去检查所有点，统计有多少是一致的内点', sec2_li3:'重复很多次，最终选择内点最多的假设作为结果', sec2_body3:'在上面的演示中，即使你把蓝点拖得很远，绿色线框仍然稳定，因为那个被拖动的点会被自动识别为外点并忽略。'
         }
       };
       window.addEventListener('load', () => SFM_I18N.mountButtons());
