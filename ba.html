@@ -29,7 +29,7 @@
     button:hover { border-color:#4fc3f7; }
     .wrap { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; align-items:flex-start; }
     .panel { background:#2d2d2d; border-radius:10px; padding:14px; box-shadow:0 4px 8px rgba(0,0,0,.25); }
-    canvas { background:#111; border:1px solid #555; border-radius:8px; max-width:100%; height:auto; }
+    canvas { background:#111; border:1px solid #555; border-radius:8px; max-width:100%; height:auto; touch-action:none; }
     .stats { font-family: monospace; color:#a5d6a7; }
     label { color:#ddd; }
     .math-box { background:#111; padding:15px; border-radius:8px; overflow-x:auto; font-size:1.05em; text-align:center; margin:15px auto; max-width:720px; }
@@ -373,10 +373,11 @@
       });
     }
 
-    residualsCanvas.addEventListener('mousemove', (e) => {
+    function updateHoverFromResidualEvent(e) {
       const rect = residualsCanvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (residualsCanvas.width / rect.width);
-      const y = (e.clientY - rect.top) * (residualsCanvas.height / rect.height);
+      const p = e.touches ? e.touches[0] : e;
+      const x = (p.clientX - rect.left) * (residualsCanvas.width / rect.width);
+      const y = (p.clientY - rect.top) * (residualsCanvas.height / rect.height);
       const cellW = 56, cellH = 42, startX = 48, startY = 22;
       const c = Math.floor((x - startX) / cellW);
       const r = Math.floor((y - startY) / cellH);
@@ -386,8 +387,13 @@
         hoverResidual = null;
       }
       render();
-    });
+    }
+
+    residualsCanvas.addEventListener('mousemove', updateHoverFromResidualEvent);
     residualsCanvas.addEventListener('mouseleave', () => { hoverResidual = null; render(); });
+    residualsCanvas.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); updateHoverFromResidualEvent(e); }, { passive:false });
+    residualsCanvas.addEventListener('touchmove', (e) => { if (e.cancelable) e.preventDefault(); updateHoverFromResidualEvent(e); }, { passive:false });
+    residualsCanvas.addEventListener('touchend', () => { hoverResidual = null; render(); });
 
     document.getElementById('perturbBtn').onclick = perturb;
     document.getElementById('outlierBtn').onclick = addOutlier;
