@@ -127,6 +127,7 @@
     let history = [];
     let running = false;
     let outlierIndex = null;
+    let hoverResidual = null;
 
     function project(cam, pt) {
       const dx = pt.x - cam.x;
@@ -261,10 +262,11 @@
       for (let i = 0; i < 8; i++) { sctx.beginPath(); sctx.moveTo(0, 60 + i*40); sctx.lineTo(scene.width, 60 + i*40); sctx.stroke(); }
       for (let i = 0; i < 10; i++) { sctx.beginPath(); sctx.moveTo(40 + i*60, 0); sctx.lineTo(40 + i*60, scene.height); sctx.stroke(); }
 
-      truth.points.forEach(p => {
+      truth.points.forEach((p, idx) => {
         const c = worldToCanvas(p.x, p.z);
-        sctx.fillStyle = 'rgba(255,255,255,0.25)';
-        sctx.beginPath(); sctx.arc(c.x, c.y, 4, 0, Math.PI*2); sctx.fill();
+        const active = hoverResidual && hoverResidual.pointIndex === idx;
+        sctx.fillStyle = active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.25)';
+        sctx.beginPath(); sctx.arc(c.x, c.y, active ? 6 : 4, 0, Math.PI*2); sctx.fill();
       });
       if (document.getElementById('showObsToggle')?.checked) {
         truth.cameras.forEach(cam => {
@@ -276,14 +278,36 @@
           });
         });
       }
-      truth.cameras.forEach(c => drawCamera(sctx, c, 'rgba(255,255,255,0.4)', true));
+      truth.cameras.forEach((c, idx) => {
+        const active = hoverResidual && hoverResidual.cameraIndex === idx;
+        drawCamera(sctx, c, active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.4)', true);
+      });
 
       state.points.forEach((p, idx) => {
         const c = worldToCanvas(p.x, p.z);
+        const active = hoverResidual && hoverResidual.pointIndex === idx;
         sctx.fillStyle = idx === outlierIndex ? '#ffeb3b' : '#03a9f4';
-        sctx.beginPath(); sctx.arc(c.x, c.y, idx === outlierIndex ? 7 : 5, 0, Math.PI*2); sctx.fill();
+        sctx.beginPath(); sctx.arc(c.x, c.y, active ? 9 : (idx === outlierIndex ? 7 : 5), 0, Math.PI*2); sctx.fill();
+        if (active) {
+          sctx.strokeStyle = '#fff';
+          sctx.lineWidth = 2;
+          sctx.stroke();
+        }
       });
-      state.cameras.forEach(c => drawCamera(sctx, c, '#e53935'));
+      state.cameras.forEach((c, idx) => {
+        const active = hoverResidual && hoverResidual.cameraIndex === idx;
+        drawCamera(sctx, c, active ? '#ff8a65' : '#e53935');
+      });
+
+      if (hoverResidual) {
+        const cam = state.cameras[hoverResidual.cameraIndex];
+        const pt = state.points[hoverResidual.pointIndex];
+        const cc = worldToCanvas(cam.x, cam.z);
+        const pc = worldToCanvas(pt.x, pt.z);
+        sctx.strokeStyle = '#ffd54f';
+        sctx.lineWidth = 3;
+        sctx.beginPath(); sctx.moveTo(cc.x, cc.y); sctx.lineTo(pc.x, pc.y); sctx.stroke();
+      }
 
       stats.textContent = `error: ${totalError().toFixed(4)} | iter: ${iter}`;
       renderGraph();
@@ -331,8 +355,14 @@
           const t = Math.min(Math.abs(cell.residual) / maxAbs, 1);
           const red = Math.round(255 * t);
           const green = Math.round(200 * (1 - t));
+          const active = hoverResidual && hoverResidual.cameraIndex === r && hoverResidual.pointIndex === c;
           rctx.fillStyle = `rgb(${red},${green},80)`;
           rctx.fillRect(startX + c*cellW, startY + r*cellH, cellW - 6, cellH - 8);
+          if (active) {
+            rctx.strokeStyle = '#fff';
+            rctx.lineWidth = 2;
+            rctx.strokeRect(startX + c*cellW, startY + r*cellH, cellW - 6, cellH - 8);
+          }
           const barH = (cellH - 16) * t;
           rctx.fillStyle = '#111';
           rctx.fillRect(startX + c*cellW + 36, startY + r*cellH + (cellH - 10 - barH), 8, barH);
@@ -342,6 +372,22 @@
         });
       });
     }
+
+    residualsCanvas.addEventListener('mousemove', (e) => {
+      const rect = residualsCanvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (residualsCanvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (residualsCanvas.height / rect.height);
+      const cellW = 56, cellH = 42, startX = 48, startY = 22;
+      const c = Math.floor((x - startX) / cellW);
+      const r = Math.floor((y - startY) / cellH);
+      if (r >= 0 && r < state.cameras.length && c >= 0 && c < state.points.length) {
+        hoverResidual = { cameraIndex: r, pointIndex: c };
+      } else {
+        hoverResidual = null;
+      }
+      render();
+    });
+    residualsCanvas.addEventListener('mouseleave', () => { hoverResidual = null; render(); });
 
     document.getElementById('perturbBtn').onclick = perturb;
     document.getElementById('outlierBtn').onclick = addOutlier;
