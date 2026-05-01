@@ -41,6 +41,12 @@
             <h2 data-i18n="card3_title">3. BA Playground</h2>
             <p data-i18n="card3_body">ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。</p>
         </a>
+
+        <a href="gauge.html" class="card">
+            <span class="badge">Gauge Freedom</span>
+            <h2 data-i18n="card4_title">4. Gauge Freedom</h2>
+            <p data-i18n="card4_body">カメラ群と点群全体を一緒に動かしても誤差が変わらない理由を、translation・rotation・scale の自由度として体験できるデモです。</p>
+        </a>
     </div>
     <script>
       window.PAGE_I18N = {
@@ -52,7 +58,9 @@
           card2_title: '2. Camera Pose (PnP)',
           card2_body: '3D空間の点と2D画像の点の対応からカメラの姿勢（位置と向き）を推定するデモ。外れ値（ノイズ）を手動で作り、RANSACがいかに強力かを体験できます。',
           card3_title: '3. BA Playground',
-          card3_body: 'ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。'
+          card3_body: 'ズレたカメラ位置と点群を最適化で少しずつ整えていくデモ。再投影誤差が下がりながら、シーン全体が収束していく様子を直感的に学べます。',
+          card4_title: '4. Gauge Freedom',
+          card4_body: 'カメラ群と点群全体を一緒に動かしても誤差が変わらない理由を、translation・rotation・scale の自由度として体験できるデモです。'
         },
         en: {
           title: 'SfM & Photogrammetry Portfolio',
@@ -62,7 +70,9 @@
           card2_title: '2. Camera Pose (PnP)',
           card2_body: 'Estimate camera pose from 3D to 2D correspondences. Manually create outliers and see how powerful RANSAC is.',
           card3_title: '3. BA Playground',
-          card3_body: 'A demo where perturbed cameras and point clouds are gradually corrected by optimization while reprojection error decreases.'
+          card3_body: 'A demo where perturbed cameras and point clouds are gradually corrected by optimization while reprojection error decreases.',
+          card4_title: '4. Gauge Freedom',
+          card4_body: 'An interactive demo for translation, rotation, and scale gauge freedoms showing why moving the whole reconstruction can leave reprojection error unchanged.'
         },
         zh: {
           title: 'SfM 与摄影测量作品集',
@@ -72,7 +82,9 @@
           card2_title: '2. 相机位姿估计（PnP）',
           card2_body: '从 3D 点与 2D 点对应关系估计相机位姿。你可以手动制造外点，体验 RANSAC 的强大。',
           card3_title: '3. BA Playground',
-          card3_body: '一个展示相机与点云在优化中逐步收敛的演示，同时可以看到重投影误差不断下降。'
+          card3_body: '一个展示相机与点云在优化中逐步收敛的演示，同时可以看到重投影误差不断下降。',
+          card4_title: '4. Gauge Freedom',
+          card4_body: '这个交互式演示展示了 translation、rotation、scale 的 gauge 自由度，以及为什么整体移动重建结果时重投影误差可能保持不变。'
         }
       };
       SFM_I18N.mountButtons();

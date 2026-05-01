@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gauge Freedom Demo</title>
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="i18n.js"></script>
+  <style>
+    body { font-family: sans-serif; background:#1e1e1e; color:#fff; margin:0; padding:20px; text-align:center; }
+    .topbar { max-width:1100px; margin:0 auto 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    #lang-switcher { display:flex; gap:8px; }
+    #lang-switcher button { background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:8px; padding:8px 12px; cursor:pointer; }
+    h1 { color:#4fc3f7; margin-bottom:8px; }
+    p { color:#ccc; max-width:1000px; margin:10px auto; line-height:1.7; text-align:left; }
+    .nav { max-width:1100px; margin:0 auto 12px; text-align:left; }
+    .nav a { color:#4fc3f7; text-decoration:none; }
+    .wrap { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; align-items:flex-start; }
+    .panel { background:#2d2d2d; border-radius:10px; padding:14px; box-shadow:0 4px 8px rgba(0,0,0,.25); }
+    canvas { background:#111; border:1px solid #555; border-radius:8px; max-width:100%; height:auto; }
+    .controls-panel { width:min(380px, 92vw); text-align:left; }
+    .control { margin:14px 0; }
+    .control-row { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:4px; }
+    .control label { color:#eee; font-weight:600; }
+    .control .value { color:#a5d6a7; font-family:monospace; }
+    input[type="range"] { width:100%; accent-color:#4fc3f7; }
+    .toggles { display:grid; gap:10px; margin-top:18px; }
+    .toggles label { display:flex; gap:10px; align-items:center; color:#ddd; font-weight:400; }
+    button { background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:8px; padding:10px 16px; cursor:pointer; }
+    button:hover { border-color:#4fc3f7; }
+    .button-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    .status-box { background:#171717; border:1px solid #3d3d3d; border-radius:10px; padding:14px; margin-top:18px; }
+    .status-line { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; font-family:monospace; color:#a5d6a7; }
+    .badge-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .badge { padding:6px 10px; border-radius:999px; font-size:0.9em; border:1px solid #555; }
+    .badge.free { background:#16311a; color:#b9f6ca; border-color:#2e7d32; }
+    .badge.fixed { background:#312117; color:#ffe0b2; border-color:#8d6e63; }
+    .mini-note { color:#aaa; font-size:0.95em; line-height:1.6; }
+    .legend { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; color:#ccc; font-size:0.95em; margin-top:10px; }
+    .legend span::before { content:''; display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+    .legend .truth::before { background:#ffffff44; border:1px dashed #fff; }
+    .legend .estimate::before { background:#03a9f4; }
+    .legend .anchor::before { background:#ffb74d; }
+    .explanation { background:#2d2d2d; padding:20px; border-radius:8px; max-width:1000px; margin:30px auto; text-align:left; box-shadow:0 4px 6px rgba(0,0,0,0.3); }
+    .math-box { background:#111; padding:15px; border-radius:8px; overflow-x:auto; font-size:1.05em; text-align:center; margin:15px auto; max-width:760px; }
+    h2 { margin-top: 28px; border-bottom: 1px solid #444; padding-bottom: 5px; display: inline-block; color:#81c784; }
+    h3 { color:#81c784; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="nav"><a href="index.html" data-i18n="back">← ポートフォリオに戻る</a></div>
+    <div id="lang-switcher"></div>
+  </div>
+  <h1 data-i18n="title">Gauge Freedom Demo</h1>
+  <p data-i18n="intro1">Bundle Adjustment では、カメラ群と点群全体をまとめて平行移動・回転・スケール変更しても、再投影誤差が変わらないことがあります。これは最適化が失敗しているのではなく、同じ誤差を持つ解が複数あるという意味です。</p>
+  <p data-i18n="intro2">このデモでは、シーン全体に similarity transform をかけても誤差が変わらない様子と、ゲージ固定を入れるとその自由度が消える様子を並べて体験できます。</p>
+
+  <div class="wrap">
+    <div class="panel">
+      <h3 data-i18n="panel_scene">Top View Scene</h3>
+      <canvas id="scene" width="700" height="460"></canvas>
+      <div class="legend">
+        <span class="truth" data-i18n="legend_truth">白い点線: 基準配置</span>
+        <span class="estimate" data-i18n="legend_estimate">青/赤: 現在配置</span>
+        <span class="anchor" data-i18n="legend_anchor">橙: 固定の基準カメラ</span>
+      </div>
+    </div>
+
+    <div class="panel controls-panel">
+      <h3 data-i18n="panel_controls">Gauge Controls</h3>
+      <div class="control">
+        <div class="control-row"><label for="scenario" data-i18n="scenario_label">Scene type</label><span class="value" id="scenarioValue">Monocular SfM</span></div>
+        <select id="scenario" style="width:100%; background:#1a1a1a; color:#fff; border:1px solid #555; border-radius:8px; padding:10px;">
+          <option value="mono">Monocular SfM</option>
+          <option value="stereo">Stereo / metric rig</option>
+        </select>
+      </div>
+      <div class="control">
+        <div class="control-row"><label for="tx" data-i18n="tx_label">Translate all (x)</label><span class="value" id="txValue">0.00</span></div>
+        <input id="tx" type="range" min="-2.5" max="2.5" step="0.01" value="0">
+      </div>
+      <div class="control">
+        <div class="control-row"><label for="tz" data-i18n="tz_label">Translate all (z)</label><span class="value" id="tzValue">0.00</span></div>
+        <input id="tz" type="range" min="-2.5" max="2.5" step="0.01" value="0">
+      </div>
+      <div class="control">
+        <div class="control-row"><label for="rot" data-i18n="rot_label">Rotate all</label><span class="value" id="rotValue">0°</span></div>
+        <input id="rot" type="range" min="-180" max="180" step="1" value="0">
+      </div>
+      <div class="control">
+        <div class="control-row"><label for="scale" data-i18n="scale_label">Scale all</label><span class="value" id="scaleValue">1.00×</span></div>
+        <input id="scale" type="range" min="0.55" max="1.75" step="0.01" value="1">
+      </div>
+
+      <div class="toggles">
+        <label><input id="fixFirstCamera" type="checkbox"> <span data-i18n="fix_first">Fix first camera</span></label>
+        <label><input id="fixCentroid" type="checkbox"> <span data-i18n="fix_centroid">Fix centroid</span></label>
+        <label><input id="fixScale" type="checkbox"> <span data-i18n="fix_scale">Fix scale</span></label>
+      </div>
+
+      <div class="button-row">
+        <button id="presetBtn" data-i18n="btn_preset">Try a big transform</button>
+        <button id="resetBtn" data-i18n="btn_reset">Reset</button>
+      </div>
+
+      <div class="status-box">
+        <div class="status-line">
+          <span id="errorLabel">error: 0.000000</span>
+          <span id="effectiveLabel">effective: identity</span>
+        </div>
+        <div class="badge-row" id="gaugeBadges"></div>
+        <p class="mini-note" id="statusNote"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="explanation">
+    <p data-i18n="body1">スライダは「全カメラと全点をまとめて」動かします。だから相対配置が保たれる限り、各カメラから見た投影は変わらず、再投影誤差も変わりません。これは BA が壊れているのではなく、目的関数そのものがその方向に対して不変だからです。</p>
+    <p data-i18n="body2">一方で <b>Fix first camera</b> や <b>Fix scale</b> を入れると、自由に動ける方向が減ります。つまり「どの座標系を正解とみなすか」を追加で決めて、同じ誤差を持つ解の族をひとつに絞っているわけです。</p>
+
+    <h2 data-i18n="math_title">📐 Gauge freedom を数式でみる</h2>
+    <p data-i18n="math_intro">Bundle Adjustment の目的関数は次の形です。</p>
+    <div class="math-box">$$
+      \min_{\{T_i\},\{X_j\}} \sum_{i,j} \left\| u_{ij} - \pi(T_i, X_j) \right\|^2
+    $$</div>
+    <p data-i18n="math_body1">ここで、全カメラと全点に同じ similarity transform をかけても、投影の整合性が保たれる場合があります。そのため、誤差がまったく同じ別解が複数存在します。</p>
+
+    <h3 data-i18n="math_gauge_title">Gauge freedom とは？</h3>
+    <p data-i18n="math_gauge_body">このページでは特に、translation / rotation / scale の自由度を見ています。トグルがOFFならその自由度は残っており、スライダを動かしても誤差は変わりません。トグルをONにすると、その成分はゲージ固定で打ち消されます。</p>
+
+    <h3 data-i18n="math_fix_title">なぜ固定が必要？</h3>
+    <p data-i18n="math_fix_body">最適化問題が一意に解けるようにするには、「最初のカメラを基準にする」「点群の重心を固定する」「スケールを固定する」といった拘束が必要です。これは数値的な安定化テクニックであると同時に、座標系の意味づけそのものでもあります。</p>
+  </div>
+
+  <script>
+    const truth = {
+      cameras: [
+        { x: -2.4, z: 0.8, yaw: 0.08 },
+        { x: 0.0, z: 0.0, yaw: 0.0 },
+        { x: 2.4, z: 0.8, yaw: -0.08 },
+      ],
+      points: [
+        { x: -1.6, z: 4.4 }, { x: -0.7, z: 4.8 }, { x: 0.1, z: 5.0 },
+        { x: 1.0, z: 4.6 }, { x: 1.9, z: 4.9 }, { x: -0.2, z: 3.8 }
+      ]
+    };
+
+    const scene = document.getElementById('scene');
+    const sctx = scene.getContext('2d');
+    const sliders = {
+      tx: document.getElementById('tx'),
+      tz: document.getElementById('tz'),
+      rot: document.getElementById('rot'),
+      scale: document.getElementById('scale')
+    };
+    const scenarioSelect = document.getElementById('scenario');
+    const values = {
+      scenario: document.getElementById('scenarioValue'),
+      tx: document.getElementById('txValue'),
+      tz: document.getElementById('tzValue'),
+      rot: document.getElementById('rotValue'),
+      scale: document.getElementById('scaleValue')
+    };
+    const toggles = {
+      fixFirstCamera: document.getElementById('fixFirstCamera'),
+      fixCentroid: document.getElementById('fixCentroid'),
+      fixScale: document.getElementById('fixScale')
+    };
+    const errorLabel = document.getElementById('errorLabel');
+    const effectiveLabel = document.getElementById('effectiveLabel');
+    const statusNote = document.getElementById('statusNote');
+    const gaugeBadges = document.getElementById('gaugeBadges');
+
+    const observations = truth.cameras.map(cam => truth.points.map(pt => project(cam, pt)));
+    const truthCentroid = centroid(truth.points);
+    const truthScale = rmsRadius(truth.points, truthCentroid);
+
+    function project(cam, pt) {
+      const dx = pt.x - cam.x;
+      const dz = pt.z - cam.z;
+      const c = Math.cos(-cam.yaw), s = Math.sin(-cam.yaw);
+      const x = c * dx - s * dz;
+      const z = s * dx + c * dz;
+      return x / Math.max(z, 0.2);
+    }
+
+    function centroid(points) {
+      const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, z: acc.z + p.z }), { x: 0, z: 0 });
+      return { x: sum.x / points.length, z: sum.z / points.length };
+    }
+
+    function rmsRadius(points, center) {
+      const meanSq = points.reduce((acc, p) => {
+        const dx = p.x - center.x;
+        const dz = p.z - center.z;
+        return acc + dx * dx + dz * dz;
+      }, 0) / points.length;
+      return Math.sqrt(meanSq);
+    }
+
+    function cloneScene(src) {
+      return {
+        cameras: src.cameras.map(c => ({ ...c })),
+        points: src.points.map(p => ({ ...p }))
+      };
+    }
+
+    function transformPoint(p, center, tx, tz, rot, scale) {
+      const x0 = p.x - center.x;
+      const z0 = p.z - center.z;
+      const c = Math.cos(rot), s = Math.sin(rot);
+      return {
+        x: center.x + scale * (c * x0 - s * z0) + tx,
+        z: center.z + scale * (s * x0 + c * z0) + tz,
+      };
+    }
+
+    function applySimilarity(sceneState, params) {
+      const center = centroid(sceneState.points);
+      sceneState.points = sceneState.points.map(p => transformPoint(p, center, params.tx, params.tz, params.rot, params.scale));
+      sceneState.cameras = sceneState.cameras.map(cam => {
+        const pos = transformPoint(cam, center, params.tx, params.tz, params.rot, params.scale);
+        return { ...cam, x: pos.x, z: pos.z, yaw: cam.yaw + params.rot };
+      });
+    }
+
+    function rotateVector(x, z, angle) {
+      const c = Math.cos(angle), s = Math.sin(angle);
+      return { x: c * x - s * z, z: s * x + c * z };
+    }
+
+    function alignFirstCamera(sceneState) {
+      const refTruth = truth.cameras[0];
+      const refNow = sceneState.cameras[0];
+      const deltaYaw = refTruth.yaw - refNow.yaw;
+      sceneState.cameras = sceneState.cameras.map(cam => {
+        const rel = rotateVector(cam.x - refNow.x, cam.z - refNow.z, deltaYaw);
+        return {
+          ...cam,
+          x: refTruth.x + rel.x,
+          z: refTruth.z + rel.z,
+          yaw: cam.yaw + deltaYaw,
+        };
+      });
+      sceneState.points = sceneState.points.map(pt => {
+        const rel = rotateVector(pt.x - refNow.x, pt.z - refNow.z, deltaYaw);
+        return { x: refTruth.x + rel.x, z: refTruth.z + rel.z };
+      });
+    }
+
+    function alignCentroid(sceneState) {
+      const c = centroid(sceneState.points);
+      const dx = truthCentroid.x - c.x;
+      const dz = truthCentroid.z - c.z;
+      sceneState.points.forEach(pt => { pt.x += dx; pt.z += dz; });
+      sceneState.cameras.forEach(cam => { cam.x += dx; cam.z += dz; });
+    }
+
+    function alignScale(sceneState) {
+      const center = centroid(sceneState.points);
+      const nowScale = rmsRadius(sceneState.points, center);
+      if (nowScale < 1e-8) return;
+      const ratio = truthScale / nowScale;
+      sceneState.points = sceneState.points.map(pt => ({
+        x: center.x + (pt.x - center.x) * ratio,
+        z: center.z + (pt.z - center.z) * ratio,
+      }));
+      sceneState.cameras = sceneState.cameras.map(cam => ({
+        ...cam,
+        x: center.x + (cam.x - center.x) * ratio,
+        z: center.z + (cam.z - center.z) * ratio,
+      }));
+    }
+
+    function getScenario() {
+      return scenarioSelect.value;
+    }
+
+    function getParams() {
+      const scenario = getScenario();
+      return {
+        tx: parseFloat(sliders.tx.value),
+        tz: parseFloat(sliders.tz.value),
+        rot: parseFloat(sliders.rot.value) * Math.PI / 180,
+        scale: scenario === 'stereo' ? 1 : parseFloat(sliders.scale.value),
+      };
+    }
+
+    function buildScene() {
+      const params = getParams();
+      const sceneState = cloneScene(truth);
+      applySimilarity(sceneState, params);
+      if (toggles.fixFirstCamera.checked) alignFirstCamera(sceneState);
+      if (toggles.fixCentroid.checked) alignCentroid(sceneState);
+      if (toggles.fixScale.checked) alignScale(sceneState);
+      return { sceneState, params };
+    }
+
+    function totalError(sceneState) {
+      let err = 0;
+      sceneState.cameras.forEach((cam, ci) => {
+        sceneState.points.forEach((pt, pi) => {
+          const diff = project(cam, pt) - observations[ci][pi];
+          err += diff * diff;
+        });
+      });
+      return err;
+    }
+
+    function worldToCanvas(x, z) {
+      return { x: 350 + x * 78, y: 330 - z * 48 };
+    }
+
+    function drawCamera(ctx, cam, color, dashed = false, emphasized = false) {
+      const p = worldToCanvas(cam.x, cam.z);
+      const a = cam.yaw - Math.PI / 2;
+      const size = emphasized ? 14 : 12;
+      const p1 = { x: p.x + Math.cos(a) * size, y: p.y + Math.sin(a) * size };
+      const p2 = { x: p.x + Math.cos(a + 2.5) * size, y: p.y + Math.sin(a + 2.5) * size };
+      const p3 = { x: p.x + Math.cos(a - 2.5) * size, y: p.y + Math.sin(a - 2.5) * size };
+      ctx.save();
+      ctx.setLineDash(dashed ? [5, 5] : []);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = emphasized ? 3 : 2;
+      ctx.fillStyle = dashed ? 'transparent' : color;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.closePath();
+      ctx.stroke();
+      if (!dashed) ctx.fill();
+      ctx.restore();
+    }
+
+    function drawScene(sceneState) {
+      sctx.clearRect(0, 0, scene.width, scene.height);
+      sctx.strokeStyle = '#333';
+      sctx.lineWidth = 1;
+      for (let i = 0; i < 9; i++) { sctx.beginPath(); sctx.moveTo(0, 60 + i * 40); sctx.lineTo(scene.width, 60 + i * 40); sctx.stroke(); }
+      for (let i = 0; i < 11; i++) { sctx.beginPath(); sctx.moveTo(40 + i * 60, 0); sctx.lineTo(40 + i * 60, scene.height); sctx.stroke(); }
+
+      truth.points.forEach(p => {
+        const c = worldToCanvas(p.x, p.z);
+        sctx.fillStyle = 'rgba(255,255,255,0.22)';
+        sctx.beginPath(); sctx.arc(c.x, c.y, 4, 0, Math.PI * 2); sctx.fill();
+      });
+      truth.cameras.forEach(c => drawCamera(sctx, c, 'rgba(255,255,255,0.45)', true));
+
+      sceneState.points.forEach(p => {
+        const c = worldToCanvas(p.x, p.z);
+        sctx.fillStyle = '#03a9f4';
+        sctx.beginPath(); sctx.arc(c.x, c.y, 5, 0, Math.PI * 2); sctx.fill();
+      });
+      sceneState.cameras.forEach((c, i) => {
+        const color = toggles.fixFirstCamera.checked && i === 0 ? '#ffb74d' : '#ef5350';
+        drawCamera(sctx, c, color, false, toggles.fixFirstCamera.checked && i === 0);
+      });
+
+      if (toggles.fixFirstCamera.checked) {
+        const anchor = worldToCanvas(truth.cameras[0].x, truth.cameras[0].z);
+        sctx.strokeStyle = '#ffcc80';
+        sctx.setLineDash([4, 4]);
+        sctx.beginPath(); sctx.arc(anchor.x, anchor.y, 20, 0, Math.PI * 2); sctx.stroke();
+        sctx.setLineDash([]);
+      }
+    }
+
+    function currentGaugeStatus() {
+      const scenario = getScenario();
+      return {
+        translationFree: !toggles.fixFirstCamera.checked && !toggles.fixCentroid.checked,
+        rotationFree: !toggles.fixFirstCamera.checked,
+        scaleFree: scenario === 'mono' && !toggles.fixScale.checked,
+      };
+    }
+
+    function updateBadges(status) {
+      const items = [
+        { key: 'translation', free: status.translationFree },
+        { key: 'rotation', free: status.rotationFree },
+        { key: 'scale', free: status.scaleFree },
+      ];
+      gaugeBadges.innerHTML = '';
+      items.forEach(item => {
+        const span = document.createElement('span');
+        span.className = `badge ${item.free ? 'free' : 'fixed'}`;
+        span.textContent = item.free ? SFM_I18N.t(`badge_${item.key}_free`) : SFM_I18N.t(`badge_${item.key}_fixed`);
+        gaugeBadges.appendChild(span);
+      });
+    }
+
+    function describeEffectiveTransform(params, status) {
+      const txEffective = status.translationFree ? params.tx : 0;
+      const tzEffective = status.translationFree ? params.tz : 0;
+      const rotEffective = status.rotationFree ? params.rot * 180 / Math.PI : 0;
+      const scaleEffective = status.scaleFree ? params.scale : 1;
+      return `tx=${txEffective.toFixed(2)}, tz=${tzEffective.toFixed(2)}, rot=${rotEffective.toFixed(0)}°, scale=${scaleEffective.toFixed(2)}×`;
+    }
+
+    function render() {
+      const scenario = getScenario();
+      const { sceneState, params } = buildScene();
+      const err = totalError(sceneState);
+      const status = currentGaugeStatus();
+      const stereoMode = scenario === 'stereo';
+      toggles.fixScale.checked = stereoMode ? true : toggles.fixScale.checked;
+      toggles.fixScale.disabled = stereoMode;
+      sliders.scale.disabled = stereoMode;
+      sliders.scale.style.opacity = stereoMode ? '0.45' : '1';
+      drawScene(sceneState);
+      errorLabel.textContent = `${SFM_I18N.t('status_error')} ${err.toFixed(6)}`;
+      effectiveLabel.textContent = `${SFM_I18N.t('status_effective')} ${describeEffectiveTransform(params, status)}`;
+      updateBadges(status);
+      if (stereoMode) {
+        statusNote.textContent = SFM_I18N.t('status_note_stereo');
+      } else {
+        statusNote.textContent = status.translationFree || status.rotationFree || status.scaleFree
+          ? SFM_I18N.t('status_note_free')
+          : SFM_I18N.t('status_note_fixed');
+      }
+      values.scenario.textContent = stereoMode ? SFM_I18N.t('scenario_stereo') : SFM_I18N.t('scenario_mono');
+      values.tx.textContent = Number(sliders.tx.value).toFixed(2);
+      values.tz.textContent = Number(sliders.tz.value).toFixed(2);
+      values.rot.textContent = `${Number(sliders.rot.value).toFixed(0)}°`;
+      values.scale.textContent = `${Number(params.scale).toFixed(2)}×`;
+    }
+
+    function setPreset() {
+      sliders.tx.value = 1.4;
+      sliders.tz.value = -0.9;
+      sliders.rot.value = 42;
+      sliders.scale.value = 1.35;
+      render();
+    }
+
+    function reset() {
+      sliders.tx.value = 0;
+      sliders.tz.value = 0;
+      sliders.rot.value = 0;
+      sliders.scale.value = 1;
+      toggles.fixFirstCamera.checked = false;
+      toggles.fixCentroid.checked = false;
+      toggles.fixScale.checked = false;
+      render();
+    }
+
+    Object.values(sliders).forEach(el => el.addEventListener('input', render));
+    Object.values(toggles).forEach(el => el.addEventListener('change', render));
+    scenarioSelect.addEventListener('change', render);
+    document.getElementById('presetBtn').addEventListener('click', setPreset);
+    document.getElementById('resetBtn').addEventListener('click', reset);
+
+    window.PAGE_I18N = {
+      ja: {
+        back:'← ポートフォリオに戻る', title:'Gauge Freedom Demo',
+        intro1:'Bundle Adjustment では、カメラ群と点群全体をまとめて平行移動・回転・スケール変更しても、再投影誤差が変わらないことがあります。これは最適化が失敗しているのではなく、同じ誤差を持つ解が複数あるという意味です。',
+        intro2:'このデモでは、シーン全体に similarity transform をかけても誤差が変わらない様子と、ゲージ固定を入れるとその自由度が消える様子を並べて体験できます。',
+        panel_scene:'Top View Scene', legend_truth:'白い点線: 基準配置', legend_estimate:'青/赤: 現在配置', legend_anchor:'橙: 固定の基準カメラ',
+        panel_controls:'Gauge Controls', scenario_label:'Scene type', scenario_mono:'Monocular SfM', scenario_stereo:'Stereo / metric rig', tx_label:'Translate all (x)', tz_label:'Translate all (z)', rot_label:'Rotate all', scale_label:'Scale all',
+        fix_first:'Fix first camera', fix_centroid:'Fix centroid', fix_scale:'Fix scale', btn_preset:'Try a big transform', btn_reset:'Reset',
+        body1:'スライダは「全カメラと全点をまとめて」動かします。だから相対配置が保たれる限り、各カメラから見た投影は変わらず、再投影誤差も変わりません。これは BA が壊れているのではなく、目的関数そのものがその方向に対して不変だからです。',
+        body2:'一方で <b>Fix first camera</b> や <b>Fix scale</b> を入れると、自由に動ける方向が減ります。つまり「どの座標系を正解とみなすか」を追加で決めて、同じ誤差を持つ解の族をひとつに絞っているわけです。',
+        math_title:'📐 Gauge freedom を数式でみる', math_intro:'Bundle Adjustment の目的関数は次の形です。', math_body1:'ここで、全カメラと全点に同じ similarity transform をかけても、投影の整合性が保たれる場合があります。そのため、誤差がまったく同じ別解が複数存在します。',
+        math_gauge_title:'Gauge freedom とは？', math_gauge_body:'このページでは特に、translation / rotation / scale の自由度を見ています。トグルがOFFならその自由度は残っており、スライダを動かしても誤差は変わりません。トグルをONにすると、その成分はゲージ固定で打ち消されます。',
+        math_fix_title:'なぜ固定が必要？', math_fix_body:'最適化問題が一意に解けるようにするには、「最初のカメラを基準にする」「点群の重心を固定する」「スケールを固定する」といった拘束が必要です。これは数値的な安定化テクニックであると同時に、座標系の意味づけそのものでもあります。',
+        badge_translation_free:'translation free', badge_translation_fixed:'translation fixed', badge_rotation_free:'rotation free', badge_rotation_fixed:'rotation fixed', badge_scale_free:'scale free', badge_scale_fixed:'scale fixed',
+        status_error:'error:', status_effective:'effective:', status_note_free:'自由な gauge が残っているので、スライダを動かしても再投影誤差はほぼ変わりません。', status_note_fixed:'translation / rotation / scale がすべて固定されました。もう gauge 方向には漂えません。', status_note_stereo:'Stereo / metric rig では基線長や外部スケールが既知なので、scale gauge は最初から固定される想定です。'
+      },
+      en: {
+        back:'← Back to portfolio', title:'Gauge Freedom Demo',
+        intro1:'In Bundle Adjustment, translating, rotating, or scaling all cameras and all 3D points together can leave the reprojection error unchanged. That does not mean optimization failed; it means multiple solutions share the same error.',
+        intro2:'This demo lets you apply a global similarity transform and then compare what happens when gauge-fixing constraints remove those freedoms.',
+        panel_scene:'Top View Scene', legend_truth:'White dashed: reference', legend_estimate:'Blue/red: current scene', legend_anchor:'Orange: anchored camera',
+        panel_controls:'Gauge Controls', scenario_label:'Scene type', scenario_mono:'Monocular SfM', scenario_stereo:'Stereo / metric rig', tx_label:'Translate all (x)', tz_label:'Translate all (z)', rot_label:'Rotate all', scale_label:'Scale all',
+        fix_first:'Fix first camera', fix_centroid:'Fix centroid', fix_scale:'Fix scale', btn_preset:'Try a big transform', btn_reset:'Reset',
+        body1:'The sliders move all cameras and all points together. As long as their relative geometry is preserved, each camera sees the same projections, so the reprojection error does not change. This is not BA breaking; the objective itself is invariant in those directions.',
+        body2:'Once you enable <b>Fix first camera</b> or <b>Fix scale</b>, some directions stop being free. In other words, you explicitly choose which coordinate frame counts as the answer.',
+        math_title:'📐 Gauge freedom in equations', math_intro:'The Bundle Adjustment objective has the following form.', math_body1:'If the same similarity transform is applied to all cameras and all points, projection consistency can remain unchanged. That means several distinct scene configurations can produce exactly the same error.',
+        math_gauge_title:'What is gauge freedom?', math_gauge_body:'This page focuses on translation, rotation, and scale freedom. If a toggle is OFF, that degree of freedom remains and moving the slider does not change the error. When a toggle is ON, the corresponding gauge component is canceled by a constraint.',
+        math_fix_title:'Why do we need fixing?', math_fix_body:'To make the optimization problem identifiable, we need constraints such as anchoring the first camera, fixing the centroid, or fixing the global scale. That is both a numerical stabilization trick and a statement about which coordinate system we choose.',
+        badge_translation_free:'translation free', badge_translation_fixed:'translation fixed', badge_rotation_free:'rotation free', badge_rotation_fixed:'rotation fixed', badge_scale_free:'scale free', badge_scale_fixed:'scale fixed',
+        status_error:'error:', status_effective:'effective:', status_note_free:'At least one gauge freedom remains, so moving the sliders should leave the reprojection error almost unchanged.', status_note_fixed:'Translation, rotation, and scale are all fixed now. The solution can no longer drift along gauge directions.', status_note_stereo:'In a stereo or metric rig, the baseline or an external metric cue is assumed known, so the scale gauge is already fixed.'
+      },
+      zh: {
+        back:'← 返回作品集', title:'Gauge Freedom Demo',
+        intro1:'在 Bundle Adjustment 中，如果把所有相机和所有三维点一起做平移、旋转或缩放，重投影误差可能完全不变。这并不表示优化失败，而是表示存在多个误差相同的解。',
+        intro2:'这个演示会让你直接对整个场景施加 similarity transform，并观察加入 gauge 固定后这些自由度如何消失。',
+        panel_scene:'俯视场景', legend_truth:'白色虚线：参考配置', legend_estimate:'蓝/红：当前配置', legend_anchor:'橙色：固定相机',
+        panel_controls:'Gauge 控制', scenario_label:'场景类型', scenario_mono:'单目 SfM', scenario_stereo:'双目 / 度量 rig', tx_label:'整体平移 (x)', tz_label:'整体平移 (z)', rot_label:'整体旋转', scale_label:'整体缩放',
+        fix_first:'固定第一台相机', fix_centroid:'固定重心', fix_scale:'固定尺度', btn_preset:'试一个大变换', btn_reset:'重置',
+        body1:'这些滑块会把所有相机和所有点一起移动。只要相对几何关系保持不变，每台相机看到的投影也不会变，所以重投影误差不会变化。这不是 BA 出错，而是目标函数本身在这些方向上不变。',
+        body2:'当你打开 <b>Fix first camera</b> 或 <b>Fix scale</b> 时，某些自由方向会被消除。也就是说，你显式规定了“哪个坐标系才算答案”。',
+        math_title:'📐 用公式看 Gauge Freedom', math_intro:'Bundle Adjustment 的目标函数形式如下。', math_body1:'如果对所有相机和所有点施加同一个 similarity transform，投影一致性仍然可能保持不变。因此，不同的场景配置可以得到完全相同的误差。',
+        math_gauge_title:'什么是 gauge freedom？', math_gauge_body:'这个页面重点展示 translation / rotation / scale 三种自由度。若某个开关关闭，对应自由度仍然存在，滑动滑块时误差不会改变；打开后，对应的 gauge 成分会被约束抵消。',
+        math_fix_title:'为什么需要固定？', math_fix_body:'为了让优化问题变得可辨识，我们需要加入约束，比如固定第一台相机、固定点云重心或固定全局尺度。这既是数值稳定化手段，也是对坐标系意义的明确规定。',
+        badge_translation_free:'translation free', badge_translation_fixed:'translation fixed', badge_rotation_free:'rotation free', badge_rotation_fixed:'rotation fixed', badge_scale_free:'scale free', badge_scale_fixed:'scale fixed',
+        status_error:'error:', status_effective:'effective:', status_note_free:'至少还有一个 gauge 自由度，因此移动滑块时重投影误差应几乎保持不变。', status_note_fixed:'平移、旋转和尺度都已固定，解不能再沿 gauge 方向漂移。', status_note_stereo:'在双目或度量 rig 中，基线长度或外部尺度通常已知，因此 scale gauge 从一开始就是固定的。'
+      }
+    };
+
+    window.addEventListener('load', () => {
+      SFM_I18N.mountButtons();
+      render();
+    });
+  </script>
+</body>
+</html>
